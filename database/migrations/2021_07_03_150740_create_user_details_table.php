@@ -17,7 +17,6 @@ class CreateUserDetailsTable extends Migration
             $table->unsignedBigInteger('user_id')->primary();
             $table->string('country_code', 2)->nullable();
             $table->text('biography')->nullable();
-            $table->text('meta')->nullable();
             $table->timestamps();
         });
     }

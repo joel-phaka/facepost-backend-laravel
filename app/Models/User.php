@@ -10,10 +10,11 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Passport\HasApiTokens;
 use Laravel\Passport\Token;
+use Plank\Metable\Metable;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasMeta;
+    use HasApiTokens, Notifiable, Metable;
 
     /**
      * The attributes that are mass assignable.
@@ -97,7 +98,7 @@ class User extends Authenticatable
     public function getProfilePictureAttribute()
     {
         $url = null;
-        if (!empty($this->meta['profile_picture']) && !!($profilePicture = Image::find($this->meta['profile_picture']))) {
+        if (!!($profilePicture = Image::find($this->getMeta('profile_picture')))) {
             return $profilePicture->url;
         } else if ($this->providers()->count()) {
             $provider = $this->providers()->first();
@@ -129,7 +130,7 @@ class User extends Authenticatable
 
     private function tryCreateUserDetail()
     {
-        if (!$this->user_detail) {
+        if (!!$this->id && !$this->user_detail) {
             return UserDetail::create(['user_id' => $this->id]);
         }
 
@@ -138,13 +139,8 @@ class User extends Authenticatable
 
     public function addHobbies($hobbies)
     {
-        if ($this->tryCreateUserDetail()) {
-            $hobbiesList = $this->user_detail->getMetaValueArray('hobbies');
-            if (!is_array($hobbies)) {
-
-            }
-
-            $this->setMetaValueArray('hobbies', $hobbies);
+        if (is_array($hobbies) && !!count($hobbies) && $this->tryCreateUserDetail()) {
+            $this->userDetail->setMeta('hobbies', $hobbies);
         }
     }
 

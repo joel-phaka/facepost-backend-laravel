@@ -18,6 +18,7 @@ class CreateImagesTable extends Migration
             $table->unsignedBigInteger('user_id');
             $table->string('caption')->nullable();
             $table->string('name')->unique();
+            $table->string('thumb_name')->unique();
             $table->string('type');
             $table->integer('width');
             $table->integer('height');

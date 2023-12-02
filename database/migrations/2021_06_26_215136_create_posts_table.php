@@ -19,7 +19,6 @@ class CreatePostsTable extends Migration
             $table->unsignedBigInteger('gallery_id')->nullable();
             $table->string('title', 60);
             $table->text('content');
-            $table->text('meta')->nullable()->default(null);
             $table->timestamps();
         });
     }

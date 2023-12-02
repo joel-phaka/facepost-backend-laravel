@@ -124,21 +124,32 @@ class AuthController extends Controller
             else if (stripos($loginLog->user_agent, 'kaios') !== false) $loginLog->device = 'kaios';
             else if ($agent->isDesktop()) $loginLog->device = 'web';
 
+            $loginLog->save();
+
             //$location = Location::get($loginLog->ip);
             $location = Location::get('102.220.209.244');
 
             if (!!$location && !$location->isEmpty() && !!$location->countryCode) {
                 $loginLog->location = $location->countryName . (!!$location->regionName ? ", {$location->regionName}" : '') . (!!$location->cityName ? ", {$location->cityName}" : '');
-                $loginLog->setMetaValue('country_code', $location->countryCode);
-                $loginLog->setMetaValueIf(!!$location->regionCode, 'region_code', $location->regionCode);
-                $loginLog->setMetaValueIf(!!$location->areaCode, 'are_code', $location->areaCode);
-                $loginLog->setMetaValueIf(!!$location->zipCode, 'zip_code', $location->zipCode);
-                $loginLog->setMetaValueIf(!!$location->timezone, 'timezone', $location->timezone);
+
+                $loginLog->setMeta('country_code', $location->countryCode);
+
+                if (!!$location->regionCode) $loginLog->setMeta('region_code', $location->regionCode);
+                if (!!$location->areaCode) $loginLog->setMeta('are_code', $location->areaCode);
+                if (!!$location->zipCode) $loginLog->setMeta('zip_code', $location->zipCode);
+                if (!!$location->timezone) $loginLog->setMeta('timezone', $location->timezone);
             }
 
-            $loginLog->mergeMetaValues($additionalMeta);
+            $additionalMeta = array_filter(
+                is_array($additionalMeta) ? $additionalMeta : [],
+                function ($v, $k) {
+                    return !!trim($k) && (!!trim($v) || is_numeric($v) && intval($v));
+                },
+                ARRAY_FILTER_USE_BOTH
+            );
 
-            $loginLog->save();
+            $loginLog->setManyMeta($additionalMeta);
+
         }
     }
 }

@@ -21,7 +21,6 @@ class CreateLoginLogTable extends Migration
             $table->text('user_agent')->nullable();
             $table->string('device', 64)->nullable();
             $table->string('location', 255)->nullable();
-            $table->text('meta')->nullable();
             $table->timestamp('date')->nullable();
         });
     }

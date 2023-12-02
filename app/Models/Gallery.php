@@ -57,15 +57,19 @@ class Gallery extends Model
 
     public function copy(array $data = array(), array &$result = null)
     {
-        if ($this->user_id != Auth::id()) return null;
+        $this->verifyAuthUser();
 
-        $galleryData = Arr::only($data, ['name', 'description', 'is_active']);
+        $galleryData = array_map('trim', Arr::only($data, ['name', 'description', 'is_active']));
 
-        if (!count($galleryData)) return null;
+        if (!count($galleryData) || empty($galleryData['name'])) {
+            throw new \Exception("Gallery name is required");
+        }
 
         $newGallery = new Gallery(array_merge($this->toArray(), $galleryData));
 
-        if (!$newGallery->save()) return null;
+        if (!$newGallery->save()) {
+            throw new \Exception("Could not create gallery copy.");
+        };
 
         $result = [
             'gallery' => ['old' => $this->id, 'new' => $newGallery->id],
@@ -79,12 +83,14 @@ class Gallery extends Model
             if (in_array($image->id, $imageExclude)) continue;
 
             $dateToday = Carbon::now()->format('Ymd');
-            $name = $dateToday . '-' . $newGallery->user_id  . '-' . Str::random(32) . '-' . $newGallery->id . '.' . pathinfo($image->name, PATHINFO_EXTENSION);
+            $tmpName = $dateToday . '-' . $newGallery->user_id  . '-' . Str::random(32) . '-' . $newGallery->id;
+            $name = "{$tmpName}." . pathinfo($image->name, PATHINFO_EXTENSION);
+            $thumb_name = "{$tmpName}_thumb." . pathinfo($image->name, PATHINFO_EXTENSION);
 
-            if (Storage::disk('images')->copy($image->name, $name)) {
+            if (Storage::disk('images')->copy($image->name, $name) && (!$image->thumb_name || Storage::disk('images')->copy($image->thumb_name, $thumb_name))) {
                 $newImage = new Image(array_merge(
                     Arr::except($image->toArray(), ['id', 'name', 'gallery_id', 'created_at', 'updated_at']),
-                    ['name' => $name, 'gallery_id' => $newGallery->id]
+                    ['name' => $name, 'thumb_name' => $thumb_name, 'gallery_id' => $newGallery->id]
                 ));
 
                 if (array_key_exists($image->id, $imageCaptions)) {
@@ -94,8 +100,6 @@ class Gallery extends Model
                 if ($newImage->save()) {
                     $result['images'][$image->id] = $newImage->id;
                 }
-            } else {
-                throw new \Exception("Could not copy images");
             }
         }
 

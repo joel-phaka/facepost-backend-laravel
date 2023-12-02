@@ -7,10 +7,11 @@ use App\Traits\HasLikes;
 use App\Traits\HasMeta;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Plank\Metable\Metable;
 
 class Image extends Model
 {
-    use HasLikes, HasMeta;
+    use HasLikes, Metable;
 
     protected $fillable = [
         'caption',
@@ -27,7 +28,7 @@ class Image extends Model
 
     protected $appends = [
         'url',
-        'thumb',
+        'thumb_url',
         'is_user_image',
     ];
 
@@ -50,8 +51,10 @@ class Image extends Model
     {
         return config('filesystems.files_link') . '/images/' . $this->name;
     }
-    public function getThumbAttribute() {
-        return !$this->getMetaValue('thumb') ? null : config('filesystems.files_link') . '/images/' . $this->getMetaValue('thumb');
+
+    public function getThumbUrlAttribute()
+    {
+        return config('filesystems.files_link') . '/images/' . $this->thumb_name;
     }
 
     public function getIsUserImageAttribute() {

@@ -23,7 +23,6 @@ class CreateUsersTable extends Migration
             $table->string('last_name', 50);
             $table->enum('gender', ['0', '1'])->nullable();
             $table->boolean('is_active')->default(1);
-            $table->text('meta')->nullable()->default(null);
             $table->rememberToken();
             $table->timestamps();
         });

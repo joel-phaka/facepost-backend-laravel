@@ -5,10 +5,11 @@ namespace App\Models;
 use App\Traits\HasMeta;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
+use Plank\Metable\Metable;
 
 class LoginLog extends Model
 {
-    use HasMeta;
+    use Metable;
 
     protected $table = 'login_log';
 

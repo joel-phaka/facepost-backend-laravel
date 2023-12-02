@@ -7,10 +7,11 @@ use App\Traits\HasLikes;
 use App\Traits\HasMeta;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Plank\Metable\Metable;
 
 class Post extends Model
 {
-    use HasMeta, HasLikes;
+    use HasLikes, Metable;
 
     protected $fillable = [
         'title',
@@ -55,7 +56,7 @@ class Post extends Model
 
     public function getPosterImage()
     {
-        return Image::find($this->getMetaValue('poster_image'));
+        return Image::find($this->getMeta('poster_image'));
     }
     public function getPosterImageAttribute()
     {

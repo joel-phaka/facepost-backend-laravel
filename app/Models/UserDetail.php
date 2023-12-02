@@ -4,10 +4,11 @@ namespace App\Models;
 
 use App\Traits\HasMeta;
 use Illuminate\Database\Eloquent\Model;
+use Plank\Metable\Metable;
 
 class UserDetail extends Model
 {
-    use HasMeta;
+    use Metable;
 
     protected $primaryKey = 'user_id';
 
@@ -31,15 +32,11 @@ class UserDetail extends Model
 
     public function getHobbiesAttribute()
     {
-        $hobbies = $this->getMetaValue('hobbies');
-
-        return is_array($hobbies) ? $hobbies : [];
+        return ($hobbies = json_decode($this->getMeta('hobbies'), true)) && is_array($hobbies) ? $hobbies : [];
     }
 
     public function getInterestsAttribute()
     {
-        $interests = $this->getMetaValue('interests');
-
-        return is_array($interests) ? $interests : [];
+        return ($interests = json_decode($this->getMeta('interests'), true)) && is_array($interests) ? $interests : [];
     }
 }

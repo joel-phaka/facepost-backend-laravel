@@ -9,6 +9,7 @@ use App\Http\Requests\Post\UpdatePostRequest;
 use App\Models\Gallery;
 use App\Models\Image;
 use App\Models\Post;
+use App\Traits\HandlesBulkImages;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -23,6 +24,8 @@ use Intervention\Image\Facades\Image as ImageManager;
 
 class PostController extends Controller
 {
+    use HandlesBulkImages;
+
     /**
      * Display a listing of the resource.
      *
@@ -146,7 +149,7 @@ class PostController extends Controller
         }
 
         if (!!$posterImageId) {
-            $post->meta = ['poster_image' => $posterImageId];
+            $post->setMeta('poster_image', $posterImageId);
             $post->save();
         }
 
@@ -178,30 +181,35 @@ class PostController extends Controller
     public function update(UpdatePostRequest $request, Post $post)
     {
         $postData = Utils::extractNonNullOrEmpty($request->only(['title', 'content']));
-        $imageFiles = is_array($request->file('image_files')) ? $request->file('image_files') : [];
+        /*$imageFiles = is_array($request->file('image_files')) ? $request->file('image_files') : [];
         $imageData = is_array($request->input('image_data')) ? $request->input('image_data') : [];
         $imageIdsToRemove = is_array($request->input('image_remove')) ? $request->input('image_remove') : [];
         $posterImageId = (int)$request->input('poster_image');
         $removePosterImage = !!$request->input('remove_poster_image');
         $isCopiedGallery = false;
-        $galleryCopyResult = null;
+        $galleryCopyResult = null;*/
 
-        if ($request->has('gallery_id')) {
-            if ($post->gallery_id != $request->has('gallery_id')) {
+
+        if (!count($postData) || $post->update($postData)) {
+            $isCopiedGallery = false;
+
+            if ($request->has('gallery_id') && $post->gallery_id != $request->input('gallery_id')) {
                 $post->gallery = $this->copyGalleryFromRequest($galleryCopyResult);
                 $post->gallery_id = $post->gallery->id;
+                $post->save();
                 $isCopiedGallery = true;
+            } else if (!$post->gallery_id) {
+                $post->gallery = Gallery::create([
+                    'name' => !empty($postData['title']) ? $postData['title'] : $post->title,
+                    'user_id' => Auth::id()
+                ]);
+            } else {
+                $post->gallery->update([
+                    'name' => !empty($postData['title']) ? $postData['title'] : $post->title
+                ]);
             }
-        } else if (!$post->gallery) {
-            $post->gallery = Gallery::create([
-                'name' => isset($postData['title']) ? $postData['title'] : $post->title,
-                'user_id' => Auth::id()
-            ]);
-        } else {
-            $post->gallery->update([
-                'name' => !empty($postData['title']) ? $postData['title'] : $post->title
-            ]);
         }
+
 
         if ($isCopiedGallery) {
             $postData['meta'] = $post->meta;
@@ -279,8 +287,9 @@ class PostController extends Controller
                     }
                 }
 
+                // TODO
                 if (!$removePosterImage && !empty($posterImageId) && !!$post->gallery->images()->where('id', $posterImageId)->first()) {
-                    $post->setMetaValue('poster_image', $posterImageId, true);
+                    $post->setMeta('poster_image', $posterImageId);
                 }
 
                 foreach ($fileData as $fileInfo) {
@@ -298,7 +307,7 @@ class PostController extends Controller
                         }
                     }
                 }
-
+                // TODO
                 $imagesToRemove = $post->gallery->images()->whereIn('id', $imageIdsToRemove)->get(['id', 'name', 'meta']);
                 foreach ($imagesToRemove as $image) {
                     if ($image->delete()) {

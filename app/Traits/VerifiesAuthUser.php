@@ -8,8 +8,10 @@ trait VerifiesAuthUser
 {
     public function verifyAuthUser($throwException = false)
     {
-        abort_if($throwException && $this->user_id == Auth::id(), 403, 'Forbidden');
+        $exists = $this->exists();
 
-        return $this->user_id == Auth::id();
+        abort_if($throwException && $exists && $this->user_id != Auth::id(), 403, 'Forbidden');
+
+        return $exists && $this->user_id == Auth::id();
     }
 }

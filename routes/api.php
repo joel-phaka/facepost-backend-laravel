@@ -44,6 +44,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/likes/unlike/{type_name}/{type_id}', 'Api\LikeController@unlike')
         ->where('type_name', '(' . implode('|', array_keys(Like::getLikeableTypes())) . ')');
 
+    Route::get('images/{user?}', 'Api\ImageController@index');
     Route::post('images/upload', 'Api\ImageController@upload');
     Route::delete('images/remove', 'Api\ImageController@destroy');
 
