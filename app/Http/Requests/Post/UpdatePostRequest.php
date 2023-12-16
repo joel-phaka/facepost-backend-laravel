@@ -17,7 +17,7 @@ class UpdatePostRequest extends FormRequest
             'image_files.*' => 'mimetypes:image/jpeg,image/png|max:'. (config('filesystems.images.max_size') ?: 2048),
             'image_data' => 'sometimes',
             'gallery_id' => 'sometimes|int',
-            'poster_image' => 'sometimes|int'
+            'poster_image' => 'sometimes|int|gt:-1'
         ];
     }
 

@@ -7,20 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Post\CreatePostRequest;
 use App\Http\Requests\Post\UpdatePostRequest;
 use App\Models\Gallery;
-use App\Models\Image;
 use App\Models\Post;
 use App\Traits\HandlesBulkImages;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-use Intervention\Image\Facades\Image as ImageManager;
 
 class PostController extends Controller
 {
@@ -54,108 +46,58 @@ class PostController extends Controller
      */
     public function store(CreatePostRequest $request)
     {
-        $imageData = is_array($request->input('image_data')) ? $request->input('image_data') : [];
-        $imageFiles = is_array($request->file('image_files')) ? $request->file('image_files') : [];
-
-        $gallery = null;
-        $isCopiedGallery = false;
-        $galleryCopyResult = null;
-
-        $posterImageId = null;
-
-        if ($request->has('gallery_id')) {
-            $gallery = $this->copyGalleryFromRequest( $galleryCopyResult);
-            $isCopiedGallery = true;
-        }
-        else {
-            $gallery = Gallery::create([
-                'name' => $request->input('title'),
-                'user_id' => Auth::id()
-            ]);
-        }
-
         $post = new Post();
         $post->title = $request->input('title');
         $post->content = $request->input('content');
         $post->user_id = Auth::id();
-        $post->gallery_id = $gallery->id;
 
-        if (!$post->save()) abort( 500, json_encode(['error' => 'Could not create post']));
+        if ($post->save()) {
+            $posterImageId = null;
+            $gallery = null;
 
-        if ($isCopiedGallery) {
-            if (is_numeric($request->input('poster_image')) && $request->input('poster_image_type') == 'id' && $galleryCopyResult && isset($galleryCopyResult['images'][$request->input('poster_image')])) {
-                $imageId = $galleryCopyResult['images'][$request->input('poster_image')];
+            if ($request->has('gallery_id') && $request->input('gallery_id') != $post->gallery_id) {
+                $copyGalleryResult = null;
+                $gallery = $this->copyGalleryFromRequest($copyGalleryResult);
+                $selectedPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
 
-                if ($post->gallery->images->where('id', $posterImageId)->exists()) {
-                    $posterImageId = $imageId;
+                if (!!$selectedPosterImage) {
+                    $posterImageId = $selectedPosterImage->id;
                 }
             }
-        }
+            else if (is_array($request->input('image_data')) && is_array($request->file('image_files'))) {
+                $gallery = Gallery::create([
+                    'name' => $request->input('title'),
+                    'user_id' => Auth::id()
+                ]);
 
-        if (!!count($imageData)) {
-            $images = ['data' => [], 'files' => []];
-            $count = 0;
+                $result = $this->handleImageUploads($gallery, true);
 
-            foreach ($imageData as $imageInfo) {
-                //if ($count < $maxImageCount) break;
-
-                if (!(!empty($imageInfo['file_id']) && !empty($imageFiles[$imageInfo['file_id']]))) {
-                    continue;
-                }
-                $file = $request->file($imageInfo['file_id']);
-                $name = date('Ymd') . '-' . Auth::id() . '-' . Str::random(32) . '-' . $gallery->id;
-                $imageName = "{$name}." . $file->extension();
-                $thumbName = "{$name}_thumb." . $file->extension();
-                list($width, $height) = getimagesize($file->path());
-                $caption = trim(isset($imageInfo['caption']) && !empty(trim($imageInfo['caption'])) ? $imageInfo['caption'] : null);
-                $timestamp = now();
-
-                $data = [
-                    'caption' => $caption,
-                    'name' => $imageName,
-                    'width' => $width,
-                    'height' => $height,
-                    'type' => $file->getMimeType(),
-                    'user_id' => Auth::id(),
-                    'gallery_id' => $gallery->id,
-                    'created_at' => $timestamp,
-                    'updated_at' => $timestamp,
-                    'meta' => ['thumb' => $thumbName]
-                ];
-
-                $images['data'][] = $data;
-                $images['files'][] = $file;
-                $count++;
-            }
-
-            if (count($images['data'])) {
-                if (!!Image::insert($images['data'])) {
-                    foreach ($images['files'] as $index => $file) {
-                        $file->storeAs('/', $images['data'][$index]['name'], 'images');
-
-                        if (!empty($images['data'][$index]['meta']['thumb'])) {
-                            $width = config('filesystems.images.thumb_width') ?: 320;
-                            $height = config('filesystems.images.thumb_height') ?: 180;
-                            $interventionImage = ImageManager::make(Storage::disk('images')->get($images['data'][$index]['meta']['thumb']));
-                            $interventionImage->fit($width, $height, function ($constraint) {
-                                $constraint->upsize();
-                            });
-                            $interventionImage->save(config('filesystems.disks.images.root') . '/' . $images['data'][$index]['meta']['thumb']);
-                            $interventionImage->destroy();
-                        }
+                if (!!count($result['images']) && is_array(data_get($result, 'meta.original_indexes')) && !!count(data_get($result, 'meta.original_indexes'))) {
+                    if ($request->input('poster_image') || is_numeric($request->input('poster_image'))) {
+                        $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.original_indexes'));
                     }
                 }
             }
+
+            if (!!$gallery) {
+                $post->gallery_id = $gallery->id;
+                $post->save();
+
+                if (!!$posterImageId) {
+                    $post->setMeta('poster_image', $posterImageId);
+                }
+            }
+
+
+            $post->load('gallery');
+
+            return response()->json($post->refresh());
         }
 
-        if (!!$posterImageId) {
-            $post->setMeta('poster_image', $posterImageId);
-            $post->save();
-        }
-
-        $post->load('gallery');
-
-        return response()->json($post->refresh());
+        return response()->json([
+            'success' => false,
+            'message' => 'Could not create post.'
+        ], 500);
     }
 
     /**
@@ -181,148 +123,61 @@ class PostController extends Controller
     public function update(UpdatePostRequest $request, Post $post)
     {
         $postData = Utils::extractNonNullOrEmpty($request->only(['title', 'content']));
-        /*$imageFiles = is_array($request->file('image_files')) ? $request->file('image_files') : [];
-        $imageData = is_array($request->input('image_data')) ? $request->input('image_data') : [];
-        $imageIdsToRemove = is_array($request->input('image_remove')) ? $request->input('image_remove') : [];
-        $posterImageId = (int)$request->input('poster_image');
-        $removePosterImage = !!$request->input('remove_poster_image');
-        $isCopiedGallery = false;
-        $galleryCopyResult = null;*/
-
 
         if (!count($postData) || $post->update($postData)) {
-            $isCopiedGallery = false;
+            $posterImageId = null;
+            $gallery = null;
 
-            if ($request->has('gallery_id') && $post->gallery_id != $request->input('gallery_id')) {
-                $post->gallery = $this->copyGalleryFromRequest($galleryCopyResult);
-                $post->gallery_id = $post->gallery->id;
-                $post->save();
-                $isCopiedGallery = true;
-            } else if (!$post->gallery_id) {
-                $post->gallery = Gallery::create([
-                    'name' => !empty($postData['title']) ? $postData['title'] : $post->title,
+            if ($request->has('gallery_id')) {
+                if ($request->input('gallery_id') != $post->gallery_id) {
+                    $copyGalleryResult = null;
+                    $gallery = $this->copyGalleryFromRequest($copyGalleryResult);
+                    $selectedPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
+
+                    if (!!$selectedPosterImage) {
+                        $posterImageId = $selectedPosterImage->id;
+                    }
+                }
+            }
+            else if (is_array($request->input('image_data')) || is_array($request->input('remove_images'))) {
+                $gallery = $post->gallery ?:  Gallery::create([
+                    'name' => $request->input('title'),
                     'user_id' => Auth::id()
                 ]);
-            } else {
-                $post->gallery->update([
-                    'name' => !empty($postData['title']) ? $postData['title'] : $post->title
-                ]);
+
+                $result = $this->handleImageUploads($gallery, true);
+
+                if (!!count($result['images']) && is_array(data_get($result, 'meta.original_indexes')) && !!count(data_get($result, 'meta.original_indexes'))) {
+                    if ($request->input('poster_image') || is_numeric($request->input('poster_image'))) {
+                        $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.original_indexes'));
+                    }
+                }
             }
-        }
 
+            if (!!$gallery || !!$post->gallery_id && !$posterImageId && intval($request->input('poster_image'))) {
+                if (!!$gallery) {
+                    $post->gallery_id = $gallery->id;
+                    $post->save();
+                }
+                else if (!!$post->gallery_id && !$posterImageId && intval($request->input('poster_image'))) {
+                    $image = $post->gallery->images
+                        ->where('id', $request->input('poster_image'))
+                        ->first();
 
-        if ($isCopiedGallery) {
-            $postData['meta'] = $post->meta;
-            Utils::unset($postData['meta'], 'poster_image');
-        }
-
-        if ($post->update($postData)) {
-            if (count($imageData)) {
-                $maxImagesAllowed = (config('filesystems.images.max_count') ?: 5) ;
-                $galleryImageCount = $post->gallery->images_count;
-                $countNewImage = 0;
-                $fileData = [];
-
-                foreach ($imageData as $imageInfo) {
-                    $image = null;
-                    $isNewImage = false;
-                    if (!empty($imageInfo['id']) && !!($img = $post->gallery->images()->where('id', $imageInfo['id'])->first())) {
-                        if (!empty($imageInfo['remove']) || in_array($imageInfo['id'], $imageIdsToRemove)) {
-                            continue;
-                        }
-                        $image = $img;
-                    } else if(!empty($imageInfo['file_id']) && !empty($imageFiles[$imageInfo['file_id']])) {
-                        $isNewImage = true;
-                    }
-
-                    if (!!$image || $isNewImage) {
-                        $hasChanges = false;
-                        $image = $image ?: new Image();
-                        $file = !empty($imageInfo['file_id']) && !empty($imageFiles[$imageInfo['file_id']]) ? $imageFiles[$imageInfo['file_id']] : null;
-                        $data = [];
-
-                        if (!!$file) {
-                            $name = date('Ymd') . '-' . Auth::id() . '-' . Str::random(32) . '-' . $post->gallery->id;
-                            $image->name = "{$name}." . $file->extension();
-                            $thumbName = "{$name}_thumb." . $file->extension();
-                            list($width, $height) = getimagesize($file->path());
-                            $image->width = $width;
-                            $image->height = $height;
-                            $image->type = $file->getMimeType();
-                            $image->user_id = Auth::id();
-                            $image->setMetaValue('thumb', $thumbName);
-
-                            $data = ['file' => $file, 'name' => $image->name, 'thumb_name' => $thumbName];
-                            if (!$isNewImage) {
-                                $imageIdsToRemove[] = $image->id;
-                            }
-                            $hasChanges = true;
-                        }
-
-                        $caption = trim(isset($imageInfo['caption']) && !empty(trim($imageInfo['caption'])) ? $imageInfo['caption'] : null);
-
-                        if ($image->caption != $caption) {
-                            $image->caption = $caption;
-                            $hasChanges = true;
-                        }
-
-                        if ($isNewImage) {
-                            $image->user_id = Auth::id();
-                            $image->gallery_id = $post->gallery->id;
-                        }
-
-                        if ($hasChanges && $image->save()) {
-                            if ($isNewImage) $countNewImage++;
-
-                            if (count($data)) $fileData[] = $data;
-
-                            if (empty($posterImageId) && !empty($imageInfo['poster_image'])) {
-                                $posterImageId = $image->id;
-                            }
-                        }
-                    }
-
-                    if (($galleryImageCount + $countNewImage) == $maxImagesAllowed) {
-                        break;
+                    if (!!$image) {
+                        $posterImageId = $image->id;
                     }
                 }
 
-                // TODO
-                if (!$removePosterImage && !empty($posterImageId) && !!$post->gallery->images()->where('id', $posterImageId)->first()) {
+                if (!!$posterImageId) {
                     $post->setMeta('poster_image', $posterImageId);
                 }
-
-                foreach ($fileData as $fileInfo) {
-                    if (!empty($fileInfo['file']) && !empty($fileInfo['name'])) {
-                        $fileInfo['file']->storeAs('/', $fileInfo['name'], 'images');
-
-                        if (!empty($fileInfo['thumb_name'])) {
-                            $width = config('filesystems.images.thumb_width') ?: 320;
-                            $height = config('filesystems.images.thumb_height') ?: 180;
-                            $interventionImage = ImageManager::make(Storage::disk('images')->get($fileInfo['name']));
-                            $interventionImage->fit($width, $height, function ($constraint) {
-                                $constraint->upsize();
-                            });
-                            $interventionImage->save(config('filesystems.disks.images.root') . '/' . $fileInfo['thumb_name']);
-                        }
-                    }
-                }
-                // TODO
-                $imagesToRemove = $post->gallery->images()->whereIn('id', $imageIdsToRemove)->get(['id', 'name', 'meta']);
-                foreach ($imagesToRemove as $image) {
-                    if ($image->delete()) {
-                        Storage::disk('images')->delete($image->name);
-                        if (!!$image->getMetaValue('thumb')) {
-                            Storage::disk('images')->delete($image->getMetaValue('thumb'));
-                        }
-                    }
-                }
             }
+
+            $post->load('gallery');
+
+            return response()->json($post->refresh());
         }
-
-        $post->load('gallery');
-
-        return response()->json($post->refresh());
     }
 
     /**
@@ -351,13 +206,20 @@ class PostController extends Controller
                 ]);
             }
 
-            $imageExclude = is_array(request()->input('image_remove')) ? request()->input('image_remove') : [];
-            $imageData = [];
+            $imageExclude = is_array(request()->input('remove_images')) ? request()->input('remove_images') : [];
+            $imageCaptions = [];
 
             if (is_array(request()->input('image_data'))) {
                 foreach (request()->input('image_data') as $d) {
-                    if (!empty($d['id'])) {
-                        if (array_key_exists('caption', $d)) $imageData[$d['id']] = $d['caption'];
+                    if (intval(data_get($d, 'id')) && ctype_digit(data_get($d, 'id'))) {
+                        if (data_get($d, 'remove') && !in_array($d['id'], $imageExclude)) {
+                            $imageExclude[] = $d['id'];
+                            continue;
+                        }
+
+                        if (array_key_exists('caption', $d)) {
+                            $imageCaptions[$d['id']] = $d['caption'];
+                        }
                     }
                 }
             }
@@ -366,7 +228,7 @@ class PostController extends Controller
                 'name' => request()->input('title'),
                 'description' => null,
                 'image_exclude' => $imageExclude,
-                'image_data' => $imageData,
+                'image_captions' => $imageCaptions,
             ], $galleryCopyResult);
 
             abort_if(!$gallery, 500, "Could copy gallery {$selectedGallery->id}");

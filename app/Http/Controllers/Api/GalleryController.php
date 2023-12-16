@@ -7,12 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Gallery\CreateGalleryRequest;
 use App\Http\Requests\Gallery\UpdateGalleryRequest;
 use App\Models\Gallery;
-use App\Models\Image;
 use App\Traits\HandlesBulkImages;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image as ImageManager;
 
 class GalleryController extends Controller
 {

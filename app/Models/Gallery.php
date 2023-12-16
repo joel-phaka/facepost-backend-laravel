@@ -78,6 +78,7 @@ class Gallery extends Model
 
         $imageCaptions = isset($data['image_captions']) && is_array($data['image_captions']) ? $data['image_captions'] : [];
         $imageExclude = isset($data['image_exclude']) && is_array($data['image_exclude']) ? $data['image_exclude'] : [];
+        $imageExclude = array_unique(array_filter(array_filter(array_map('intval', $imageExclude), 'intval'), 'ctype_digit'));
 
         foreach ($this->images as $image) {
             if (in_array($image->id, $imageExclude)) continue;
@@ -98,7 +99,7 @@ class Gallery extends Model
                 }
 
                 if ($newImage->save()) {
-                    $result['images'][$image->id] = $newImage->id;
+                    $result['images'][$image->id] = $newImage;
                 }
             }
         }

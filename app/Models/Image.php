@@ -16,6 +16,7 @@ class Image extends Model
     protected $fillable = [
         'caption',
         'name',
+        'thumb_name',
         'type',
         'width',
         'height',
@@ -49,12 +50,12 @@ class Image extends Model
 
     public function getUrlAttribute()
     {
-        return config('filesystems.files_link') . '/images/' . $this->name;
+        return config('filesystems.files_link') ? config('filesystems.files_link') . '/images/' . $this->name : null;
     }
 
     public function getThumbUrlAttribute()
     {
-        return config('filesystems.files_link') . '/images/' . $this->thumb_name;
+        return $this->thumb_name && config('filesystems.files_link') ? config('filesystems.files_link') . '/images/' . $this->thumb_name : null;
     }
 
     public function getIsUserImageAttribute() {

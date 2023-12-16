@@ -69,7 +69,7 @@ class Post extends Model
     public function getPosterImageThumbAttribute()
     {
         if (!!($posterImage = $this->getPosterImage())) {
-            return $posterImage->thumb;
+            return $posterImage->thumb_url;
         }
         return null;
     }

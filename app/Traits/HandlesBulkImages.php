@@ -30,7 +30,7 @@ trait HandlesBulkImages
 
         $newFilesCount = 0;
 
-        foreach ($imageData as $imageInfo) {
+        foreach ($imageData as $i => $imageInfo) {
             if (!empty($imageInfo['id']) && (!empty($imageInfo['remove']) || in_array($imageInfo['id'], $removeImages))) {
                 if (!in_array($imageInfo['id'], $removeImages)) {
                     $removeImages[] = $imageInfo['id'];
@@ -56,7 +56,8 @@ trait HandlesBulkImages
 
                 $image = $image->first();
 
-            } else if (array_key_exists('file_id', $imageInfo) && !empty($imageFiles[$imageInfo['file_id']])) {
+            }
+            else if (array_key_exists('file_id', $imageInfo) && !empty($imageFiles[$imageInfo['file_id']])) {
                 $file = $imageFiles[$imageInfo['file_id']];
 
                 if ($file->isFile() && $file->isValid()) {
@@ -75,7 +76,12 @@ trait HandlesBulkImages
                     $image->width = $width;
                     $image->height = $height;
                     $image->type = $file->getMimeType();
-                } else {
+
+                    if (!!$gallery && !!$gallery->id) {
+                        $image->gallery_id = $gallery->id;
+                    }
+                }
+                else {
                     $file = null;
                 }
             }
@@ -94,6 +100,12 @@ trait HandlesBulkImages
                             'thumb_name' => $image->thumb_name
                         ];
                     }
+
+                    if (empty($metaFromImages['original_indexes']) || !is_array($metaFromImages['original_indexes'])) {
+                        $metaFromImages['original_indexes'] = [];
+                    }
+                    $metaFromImages['original_indexes'][$image->id] = $i;
+
                     $validImages[$image->id] = $image;
 
                     foreach ($metaOfInterest as $mk => $mv) {
@@ -123,7 +135,8 @@ trait HandlesBulkImages
                     $constraint->upsize();
                 });
                 $interventionImage->save(config('filesystems.disks.images.root') . '/' . $thumb_name);
-            } else {
+            }
+            else {
                 if (!empty($validImages[$image->id])) {
                     unset($validImages[$image->id]);
                 }
@@ -183,7 +196,8 @@ trait HandlesBulkImages
                     if (!!$image->thumb_name) {
                         Storage::disk('images')->delete($image->thumb_name);
                     }
-                } else {
+                }
+                else {
                     $errorCount++;
                 }
             }
