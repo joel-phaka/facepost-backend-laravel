@@ -16,11 +16,17 @@ class LoginLog extends Model
     protected $fillable = [
         'user_id',
         'access_token',
+        'external_auth',
+        'external_auth_provider',
         'ip',
         'user_agent',
-        'device',
+        'device_platform',
         'location',
-        'meta',
+        'country_code',
+        'region_code',
+        'are_code',
+        'zip_code',
+        'timezone',
         'date',
     ];
 

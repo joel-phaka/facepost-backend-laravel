@@ -100,13 +100,12 @@ class AuthController extends Controller
 
             return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url, 'access_token' => $tokenResult->accessToken]);
         } catch (\Exception $exception) {
-            dd($exception);
             return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url])
                 ->withErrors(['auth' => 'Failed to authenticated.']);
         }
     }
 
-    private function createLoginLog($accessToken, array $additionalMeta = array())
+    private function createLoginLog($accessToken,  array $additionalData = array())
     {
         if (($user = AuthUtils::findByAccessToken($accessToken))) {
             $loginLog = new LoginLog();
@@ -115,41 +114,35 @@ class AuthController extends Controller
             $loginLog->ip = request()->ip();
             $loginLog->user_agent = request()->header('user-agent');
             $loginLog->date = Carbon::now();
+            $loginLog->external_auth = !!data_get($additionalData, 'external_auth');
+
+            if (data_get($additionalData, 'external_auth_provider')) {
+                $loginLog->external_auth_provider = data_get($additionalData, 'external_auth_provider');
+            }
 
             $agent = new Agent();
-            if ($agent->isiOS() || $agent->isiPhone()) $loginLog->device = 'ios';
-            else if ($agent->isiPadOS() || $agent->isiPad()) $loginLog->device = 'ipados';
-            else if ($agent->isAndroidOS()) $loginLog->device = 'android';
-            else if ($agent->iswebOS()) $loginLog->device = 'webos';
-            else if (stripos($loginLog->user_agent, 'kaios') !== false) $loginLog->device = 'kaios';
-            else if ($agent->isDesktop()) $loginLog->device = 'web';
+            if ($agent->isiOS() || $agent->isiPhone()) $loginLog->device_platform = 'ios';
+            else if ($agent->isiPadOS() || $agent->isiPad()) $loginLog->device_platform = 'ipados';
+            else if ($agent->isAndroidOS()) $loginLog->device_platform = 'android';
+            else if ($agent->iswebOS()) $loginLog->device_platform = 'webos';
+            else if (stripos($loginLog->user_agent, 'kaios') !== false) $loginLog->device_platform = 'kaios';
+            else if ($agent->isDesktop()) $loginLog->device_platform = 'web';
 
             $loginLog->save();
 
-            //$location = Location::get($loginLog->ip);
-            $location = Location::get('102.220.209.244');
+            $location = Location::get($loginLog->ip);
 
             if (!!$location && !$location->isEmpty() && !!$location->countryCode) {
                 $loginLog->location = $location->countryName . (!!$location->regionName ? ", {$location->regionName}" : '') . (!!$location->cityName ? ", {$location->cityName}" : '');
+                $loginLog->country_code = $location->countryCode;
 
-                $loginLog->setMeta('country_code', $location->countryCode);
+                if (!!$location->regionCode) $loginLog->region_code = $location->regionCode;
+                if (!!$location->areaCode) $loginLog->are_code = $location->areaCode;
+                if (!!$location->zipCode) $loginLog->zip_code = $location->zipCode;
+                if (!!$location->timezone) $loginLog->timezone = $location->timezone;
 
-                if (!!$location->regionCode) $loginLog->setMeta('region_code', $location->regionCode);
-                if (!!$location->areaCode) $loginLog->setMeta('are_code', $location->areaCode);
-                if (!!$location->zipCode) $loginLog->setMeta('zip_code', $location->zipCode);
-                if (!!$location->timezone) $loginLog->setMeta('timezone', $location->timezone);
+                $loginLog->save();
             }
-
-            $additionalMeta = array_filter(
-                is_array($additionalMeta) ? $additionalMeta : [],
-                function ($v, $k) {
-                    return !!trim($k) && (!!trim($v) || is_numeric($v) && intval($v));
-                },
-                ARRAY_FILTER_USE_BOTH
-            );
-
-            $loginLog->setManyMeta($additionalMeta);
-
         }
     }
 }

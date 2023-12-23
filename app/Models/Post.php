@@ -25,7 +25,7 @@ class Post extends Model
 
     protected $with = ['user', 'gallery'];
 
-    protected $withCount = ['likes'];
+    protected $withCount = ['likes', 'comments'];
 
     protected $appends = ['poster_image', 'poster_image_thumb'];
 
@@ -33,11 +33,6 @@ class Post extends Model
     {
         return $this->belongsTo(User::class);
     }
-
-    /*public function images()
-    {
-        return !!$this->gallery ? $this->gallery->images->get() : [];
-    }*/
 
     public function gallery()
     {

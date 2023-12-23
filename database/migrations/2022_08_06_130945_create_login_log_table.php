@@ -17,10 +17,17 @@ class CreateLoginLogTable extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->text('access_token')->nullable();
+            $table->text('external_auth')->nullable();
+            $table->text('external_auth_provider')->nullable();
             $table->string('ip', 45)->nullable();
             $table->text('user_agent')->nullable();
-            $table->string('device', 64)->nullable();
+            $table->string('device_platform', 64)->nullable();
             $table->string('location', 255)->nullable();
+            $table->string('country_code', 16)->nullable();
+            $table->string('region_code', 16)->nullable();
+            $table->string('are_code', 16)->nullable();
+            $table->string('zip_code', 16)->nullable();
+            $table->string('timezone', 16)->nullable();
             $table->timestamp('date')->nullable();
         });
     }
