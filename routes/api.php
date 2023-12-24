@@ -27,11 +27,21 @@ Route::group([
 });
 
 Route::middleware('auth:api')->group(function () {
-    Route::apiResource('posts', 'Api\PostController')->except(['update']);
-    Route::post('posts/{post}', 'Api\PostController@update')->name('posts.update ');
+    Route::apiResource('posts', 'Api\PostController')->except(['update,destroy']);
+    Route::post('posts/{post}', 'Api\PostController@update')
+        ->middleware('verify_auth_user_resource:post')
+        ->name('posts.update');
+    Route::delete('posts/{post}', 'Api\PostController@destroy')
+        ->middleware('verify_auth_user_resource:post')
+        ->name('posts.destroy');
 
-    Route::apiResource('gallery', 'Api\GalleryController')->except(['update']);
-    Route::post('gallery/{gallery}', 'Api\GalleryController@update')->name('gallery.update ');
+    Route::apiResource('gallery', 'Api\GalleryController')->except(['update,destroy']);
+    Route::post('gallery/{gallery}', 'Api\GalleryController@update')
+        ->middleware('verify_auth_user_resource:gallery')
+        ->name('gallery.update');
+    Route::delete('gallery/{gallery}', 'Api\GalleryController@update')
+        ->middleware('verify_auth_user_resource:gallery')
+        ->name('gallery.destroy');
 
     Route::apiResource('comments', 'Api\CommentController');
     Route::post('comments/reply/{comment}', 'Api\CommentController@replyToComment');
@@ -49,12 +59,12 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('images/remove', 'Api\ImageController@destroy');
 
     Route::get('profile', 'Api\ProfileController@index');
-    Route::get('profile/{user:username}', 'Api\ProfileController@show');
-    Route::get('profile/{user:username}/images', 'Api\ProfileController@getUserImages');
-    Route::get('profile/{user:username}/galleries', 'Api\ProfileController@getUserGalleries');
-    Route::get('profile/{user:username}/posts', 'Api\ProfileController@getUserPosts');
-    Route::get('profile/{user:username}/comments', 'Api\ProfileController@getUserComments');
-    Route::get('profile/{user:username}/likes/{type_name}', 'Api\ProfileController@getUserLikes')
+    Route::get('profile/{user}', 'Api\ProfileController@show');
+    Route::get('profile/{user}/images', 'Api\ProfileController@getUserImages');
+    Route::get('profile/{user}/galleries', 'Api\ProfileController@getUserGalleries');
+    Route::get('profile/{user}/posts', 'Api\ProfileController@getUserPosts');
+    Route::get('profile/{user}/comments', 'Api\ProfileController@getUserComments');
+    Route::get('profile/{user}/likes/{type_name}', 'Api\ProfileController@getUserLikes')
         ->where('type_name', '(' . implode('|', array_keys(Like::getLikeableTypes())) . ')');
 
     //Route::post('account/profile', 'Api\AccountController@updateProfile');

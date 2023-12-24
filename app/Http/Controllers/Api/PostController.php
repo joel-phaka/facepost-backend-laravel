@@ -66,7 +66,7 @@ class PostController extends Controller
             }
             else if (is_array($request->input('image_data')) && is_array($request->file('image_files'))) {
                 $gallery = Gallery::create([
-                    'name' => $request->input('title'),
+                    'name' => $post->title,
                     'user_id' => Auth::id()
                 ]);
 
@@ -141,7 +141,7 @@ class PostController extends Controller
             }
             else if (is_array($request->input('image_data')) || is_array($request->input('remove_images'))) {
                 $gallery = $post->gallery ?:  Gallery::create([
-                    'name' => $request->input('title'),
+                    'name' => $post->title,
                     'user_id' => Auth::id()
                 ]);
 
