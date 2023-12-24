@@ -43,7 +43,14 @@ Route::middleware('auth:api')->group(function () {
         ->middleware('verify_auth_user_resource:gallery')
         ->name('gallery.destroy');
 
-    Route::apiResource('comments', 'Api\CommentController');
+    Route::apiResource('comments', 'Api\CommentController')->except(['update,destroy']);
+    Route::post('comments/{comment}', 'Api\CommentController@update')
+        ->middleware('verify_auth_user_resource:comment')
+        ->name('comments.update');
+    Route::delete('comments/{comment}', 'Api\CommentController@destroy')
+        ->middleware('verify_auth_user_resource:comment')
+        ->name('comments.destroy');
+
     Route::post('comments/reply/{comment}', 'Api\CommentController@replyToComment');
     Route::get('comments/thread/{comment}', 'Api\CommentController@thread');
     Route::get('comments/replies/{comment}', 'Api\CommentController@thread');

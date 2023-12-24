@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Auth;
 
 trait VerifiesAuthUser
 {
-    public function verifyAuthUser($throwException = false)
+    public function verifyAuthUser($throwException = false, $checkExists = true)
     {
-        $exists = $this->exists();
+        $exists = !$checkExists || $this->exists();
 
         abort_if($throwException && $exists && $this->user_id != Auth::id(), 403, 'Forbidden');
 

@@ -43,10 +43,6 @@ class CommentController extends Controller
 
     public function update(Comment $comment, UpdateCommentRequest $request)
     {
-        if (!$comment->user->isAuthUser()) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $comment->update($request->only(['content'])) ;
 
         return response()->json($comment);
@@ -54,9 +50,6 @@ class CommentController extends Controller
 
     public function destroy(Comment $comment)
     {
-        if (!$comment->user->isAuthUser()) {
-            return response()->json('Forbidden', 403);
-        }
         $comment->delete();
 
         /* Delete replies
@@ -75,7 +68,6 @@ class CommentController extends Controller
     {
         $comments = $post->comments()
             ->whereNull('parent_id')
-            //->where('post_id', $post->id)
             ->latest('created_at');
 
         return response()->json(Utils::paginate($comments));

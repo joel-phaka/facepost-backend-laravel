@@ -16,7 +16,7 @@ class VerifyAuthUserResource
     public function handle($request, Closure $next, $modelName = null)
     {
         if (in_array($request->method(), ['POST', 'PUT', 'PATCH']) && !!$modelName && ($model = $request->route($modelName)) && method_exists($model, 'verifyAuthUser')) {
-            $model->verifyAuthUser(true);
+            $model->verifyAuthUser(true, false);
         }
 
         return $next($request);

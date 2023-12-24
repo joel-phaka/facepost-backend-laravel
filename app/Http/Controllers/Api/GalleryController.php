@@ -31,12 +31,7 @@ class GalleryController extends Controller
 
     public function update(Gallery $gallery, UpdateGalleryRequest $request)
     {
-        $gallery->verifyAuthUser(true);
-
-        if ($gallery->name != $request->input('name')) {
-            $gallery->name = $request->input('name');
-            $gallery->save();
-        }
+        $gallery->update($request->only(['name']));
 
         $this->handleImageUploads($gallery, true);
 
@@ -45,14 +40,12 @@ class GalleryController extends Controller
 
     public function destroy(Gallery $gallery)
     {
-        $gallery->verifyAuthUser(true);
-
         $isDeleted = $gallery->delete();
-        $filesDelete = $this->deleteImagesFromRequest($gallery);
+        $imagesDeleted = $this->deleteImagesFromRequest($gallery);
 
         return response()->json(
-            ['success' => !!$isDeleted && $filesDelete],
-            !!$isDeleted && $filesDelete ? 200 : 500
+            ['success' => !!$isDeleted && $imagesDeleted],
+            $isDeleted && $imagesDeleted ? 200 : 500
         );
     }
 }
