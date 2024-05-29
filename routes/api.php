@@ -20,13 +20,13 @@ Route::group([
     Route::post('login', 'Api\AuthController@login')->name('login');
     Route::post('register', 'Api\AuthController@register')->name('register');
 
-    Route::middleware('auth:api')->group(function () {
+    Route::middleware(['auth:api', 'auth.active'])->group(function () {
         Route::get('user', 'Api\AuthController@user');
         Route::post('logout', 'Api\AuthController@logout');
     });
 });
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware(['auth:api', 'auth.active'])->group(function () {
     Route::apiResource('posts', 'Api\PostController')->except(['update,destroy']);
     Route::post('posts/{post}', 'Api\PostController@update')
         ->middleware('verify_auth_user_resource:post')
@@ -37,18 +37,18 @@ Route::middleware('auth:api')->group(function () {
 
     Route::apiResource('gallery', 'Api\GalleryController')->except(['update,destroy']);
     Route::post('gallery/{gallery}', 'Api\GalleryController@update')
-        ->middleware('verify_auth_user_resource:gallery')
+        ->middleware('auth.owner:gallery')
         ->name('gallery.update');
     Route::delete('gallery/{gallery}', 'Api\GalleryController@update')
-        ->middleware('verify_auth_user_resource:gallery')
+        ->middleware('auth.owner:gallery')
         ->name('gallery.destroy');
 
     Route::apiResource('comments', 'Api\CommentController')->except(['update,destroy']);
     Route::post('comments/{comment}', 'Api\CommentController@update')
-        ->middleware('verify_auth_user_resource:comment')
+        ->middleware('auth.owner:comment')
         ->name('comments.update');
     Route::delete('comments/{comment}', 'Api\CommentController@destroy')
-        ->middleware('verify_auth_user_resource:comment')
+        ->middleware('auth.owner:comment')
         ->name('comments.destroy');
 
     Route::post('comments/reply/{comment}', 'Api\CommentController@replyToComment');

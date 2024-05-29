@@ -63,4 +63,18 @@ class Utils
 
         return $data;
     }
+
+    public static function baseUrl($path = null)
+    {
+        $isSecure = !empty($_SERVER['HEADER_X_FORWARDED_PROTO']) && $_SERVER['HEADER_X_FORWARDED_PROTO'] == 'https' || !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on';
+        $proto = 'http' . ($isSecure ? 's' : null);
+        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? null;
+
+        $url = (!!$host ? ($proto . '://' . $host) : null);
+
+        $path = preg_replace('/^\//', '/', trim($path));
+        $path = preg_replace('/\/$/', '', $path);
+
+        return $url . (!!$path ? $path : null);
+    }
 }

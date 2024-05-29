@@ -33,15 +33,15 @@ return [
         'grant_type' => env('PASSPORT_DEFAULT_GRANT_TYPE'),
         'client_id' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_ID'),
         'client_secret' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET'),
-        'oauth_token_url' => env('APP_URL') . '/oauth/token',
-        'auth_user_url' => env('APP_URL') . '/api/user',
+        'oauth_token_url' => env('PASSPORT_OAUTH_TOKEN_URL'),
+        'oauth_token_refresh_url' => env('PASSPORT_OAUTH_TOKEN_REFRESH_URL'),
     ],
 
     /** External Auth Providers **/
     'facebook' => [
         'client_id' => env('FACEBOOK_CLIENT_ID'),
         'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
-        'redirect' => 'FACEBOOK_REDIRECT_URI',
+        'redirect' => env('FACEBOOK_REDIRECT_URI'),
     ],
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),

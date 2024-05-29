@@ -3,8 +3,9 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Support\Facades\Auth;
 
-class VerifyAuthUserResource
+class VerifyOwnership
 {
     /**
      * Handle an incoming request.
@@ -15,8 +16,10 @@ class VerifyAuthUserResource
      */
     public function handle($request, Closure $next, $modelName = null)
     {
-        if (in_array($request->method(), ['POST', 'PUT', 'PATCH']) && !!$modelName && ($model = $request->route($modelName)) && method_exists($model, 'verifyAuthUser')) {
-            $model->verifyAuthUser(true, false);
+        if (!!$modelName && ($model = $request->route($modelName)) && method_exists($model, 'verifyAuthUser')) {
+            if ($model->verifyAuthUser()) {
+                return response()->json(['message' => 'Forbidden'], 403);
+            };
         }
 
         return $next($request);

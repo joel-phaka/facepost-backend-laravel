@@ -11,6 +11,8 @@ use App\Models\LoginLog;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
 use Stevebauman\Location\Facades\Location;
@@ -19,19 +21,39 @@ class AuthController extends Controller
 {
     public function login(LoginRequest $request)
     {
-        if (!Auth::attempt($request->only(['email', 'password']))) {
-            return response()->json(['message' => 'Incorrect email or password'], 401);
-        }
-        $user = Auth::user();
-        $tokenResult = $user->createToken('auth-token');
-        $this->createLoginLog($tokenResult->accessToken);
+        $userFromEmail = DB::table('users')
+            ->select(['is_active'])
+            ->where('email', $request->input('email'))
+            ->first();
 
-        return response()->json([
-            'access_token' => $tokenResult->accessToken,
-            'token_type' => 'Bearer',
-            'expires_at' => $tokenResult->token->expires_at,
-            'user' => $user
+        if ($userFromEmail && !$userFromEmail->is_active) {
+            return response()->json(['message' => 'User account not active.'], 401);
+        }
+
+        $httpClient = Http::withOptions(['verify' => !config('app.debug')]);
+
+        $httpResponse = $httpClient->post(config('services.passport.oauth_token_url'), [
+            'grant_type' => config('services.passport.grant_type'),
+            'client_id' => config('services.passport.client_id'),
+            'client_secret' => config('services.passport.client_secret'),
+            'username' => $request->input('email'),
+            'password' => $request->input('password'),
         ]);
+
+        if ($httpResponse->successful()) {
+            $tokenData = $httpResponse->json();
+            $user = AuthUtils::findByAccessToken($tokenData['access_token']);
+
+            if (!$user) {
+                return response()->json(['message' => 'An error occurred'], 500);
+            }
+
+            $data = array_merge($tokenData, compact('user'));
+
+            return response()->json($data, 200);
+        } else {
+            return response()->json(['message' => "Unauthorized"], 401);
+        }
     }
 
     public function register(RegisterRequest $request)
@@ -49,12 +71,12 @@ class AuthController extends Controller
 
     public function user()
     {
-        return Auth::user();
+        return auth()->user();
     }
 
     public function logout()
     {
-        Auth::user()->token()->revoke();
+        auth()->user()->token()->revoke();
 
         return response()->json(['message' => 'Logged out successfully']);
     }
