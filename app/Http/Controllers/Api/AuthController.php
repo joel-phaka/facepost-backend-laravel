@@ -3,22 +3,57 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\AuthUtils;
-use App\Helpers\Utils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\LoginLog;
 use App\Models\User;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use InvalidArgumentException;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
 use Stevebauman\Location\Facades\Location;
 
 class AuthController extends Controller
 {
+    private function getTokens(array $credentials)
+    {
+        if (empty($credentials) || !in_array($credentials['grant_type'] ?? null, ['password', 'refresh_token'])) {
+            throw new InvalidArgumentException('grant_type is required and must be one of "password", "refresh_token".');
+        }
+
+        if ($credentials['grant_type'] == 'password') {
+            $credentials['username'] = $credentials['username'] ?? $credentials['email'] ?? null;
+
+            if (empty($credentials['username']) || empty($credentials['password'])) {
+                $usernameField = !empty($credentials['username']) ? 'username' : 'email';
+
+                throw new InvalidArgumentException("{$usernameField} and password are required.");
+            }
+        } else if ($credentials['grant_type'] == 'refresh_token') {
+            if (empty($credentials['refresh_token'])) {
+                throw new InvalidArgumentException('refresh_token is required.');
+            }
+        }
+
+        $credentials = array_merge($credentials, [
+            'client_id' => config('services.passport.client_id'),
+            'client_secret' => config('services.passport.client_secret'),
+        ]);
+
+        $response = Http::withOptions(['verify' => !config('app.debug')])
+            ->post(config('services.passport.oauth_token_url'), $credentials);
+
+        if ($response->failed()) {
+            throw new AuthenticationException("Unauthorized");
+        }
+
+        return $response->json();
+    }
     public function login(LoginRequest $request)
     {
         $userFromEmail = DB::table('users')
@@ -30,30 +65,40 @@ class AuthController extends Controller
             return response()->json(['message' => 'User account not active.'], 401);
         }
 
-        $httpClient = Http::withOptions(['verify' => !config('app.debug')]);
+        $credentials = array_merge(
+            ['grant_type' => 'password'],
+            $request->only('email', 'password')
+        );
 
-        $httpResponse = $httpClient->post(config('services.passport.oauth_token_url'), [
-            'grant_type' => config('services.passport.grant_type'),
-            'client_id' => config('services.passport.client_id'),
-            'client_secret' => config('services.passport.client_secret'),
-            'username' => $request->input('email'),
-            'password' => $request->input('password'),
+        $tokens = $this->getTokens($credentials);
+        $user = AuthUtils::findByAccessToken($tokens['access_token']);
+
+        if (!!$user) {
+            return response()->json(array_merge($tokens, compact('user')));
+        }
+
+        return response()->json(['message' => "Unauthorized"], 401);
+    }
+
+    public function refresh(Request $request)
+    {
+        $this->validate($request, [
+            'refresh_token' => 'required|string',
         ]);
 
-        if ($httpResponse->successful()) {
-            $tokenData = $httpResponse->json();
-            $user = AuthUtils::findByAccessToken($tokenData['access_token']);
+        $credentials = array_merge(
+            ['grant_type' => 'refresh_token'],
+            $request->only('refresh_token')
+        );
 
-            if (!$user) {
-                return response()->json(['message' => 'An error occurred'], 500);
-            }
+        $tokens = $this->getTokens($credentials);
+        $user = AuthUtils::findByAccessToken($tokens['access_token']);
 
-            $data = array_merge($tokenData, compact('user'));
-
-            return response()->json($data, 200);
-        } else {
-            return response()->json(['message' => "Unauthorized"], 401);
+        if (!!$user) {
+            return response()->json(array_merge($tokens, compact('user')));
         }
+
+        return response()->json(['message' => "Unauthorized"], 401);
     }
 
     public function register(RegisterRequest $request)

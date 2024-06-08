@@ -17,8 +17,9 @@ use App\Models\Like;
 Route::group([
     'prefix' => 'auth'
 ], function () {
-    Route::post('login', 'Api\AuthController@login')->name('login');
-    Route::post('register', 'Api\AuthController@register')->name('register');
+    Route::post('login', 'Api\AuthController@login');
+    Route::post('refresh', 'Api\AuthController@refresh');
+    Route::post('register', 'Api\AuthController@register');
 
     Route::middleware(['auth:api', 'auth.active'])->group(function () {
         Route::get('user', 'Api\AuthController@user');
@@ -29,27 +30,21 @@ Route::group([
 Route::middleware(['auth:api', 'auth.active'])->group(function () {
     Route::apiResource('posts', 'Api\PostController')->except(['update,destroy']);
     Route::post('posts/{post}', 'Api\PostController@update')
-        ->middleware('verify_auth_user_resource:post')
-        ->name('posts.update');
+        ->middleware('verify_auth_user_resource:post');
     Route::delete('posts/{post}', 'Api\PostController@destroy')
-        ->middleware('verify_auth_user_resource:post')
-        ->name('posts.destroy');
+        ->middleware('verify_auth_user_resource:post');
 
     Route::apiResource('gallery', 'Api\GalleryController')->except(['update,destroy']);
     Route::post('gallery/{gallery}', 'Api\GalleryController@update')
-        ->middleware('auth.owner:gallery')
-        ->name('gallery.update');
+        ->middleware('auth.owner:gallery');
     Route::delete('gallery/{gallery}', 'Api\GalleryController@update')
-        ->middleware('auth.owner:gallery')
-        ->name('gallery.destroy');
+        ->middleware('auth.owner:gallery');
 
     Route::apiResource('comments', 'Api\CommentController')->except(['update,destroy']);
     Route::post('comments/{comment}', 'Api\CommentController@update')
-        ->middleware('auth.owner:comment')
-        ->name('comments.update');
+        ->middleware('auth.owner:comment');
     Route::delete('comments/{comment}', 'Api\CommentController@destroy')
-        ->middleware('auth.owner:comment')
-        ->name('comments.destroy');
+        ->middleware('auth.owner:comment');
 
     Route::post('comments/reply/{comment}', 'Api\CommentController@replyToComment');
     Route::get('comments/thread/{comment}', 'Api\CommentController@thread');
