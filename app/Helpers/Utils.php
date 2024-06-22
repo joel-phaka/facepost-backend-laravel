@@ -66,15 +66,31 @@ class Utils
 
     public static function baseUrl($path = null)
     {
-        $isSecure = !empty($_SERVER['HEADER_X_FORWARDED_PROTO']) && $_SERVER['HEADER_X_FORWARDED_PROTO'] == 'https' || !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on';
-        $proto = 'http' . ($isSecure ? 's' : null);
-        $host = $_SERVER['HTTP_X_FORWARDED_HOST'] ?? $_SERVER['HTTP_HOST'] ?? null;
+        $host = data_get($_SERVER, 'HTTP_X_FORWARDED_HOST') ?: data_get($_SERVER,'HTTP_HOST');
+        $proto = null;
+
+        if (!!data_get($_SERVER, 'HTTP_X_FORWARDED_PROTO')) {
+            $proto = $_SERVER['HTTP_X_FORWARDED_PROTO'];
+        } else {
+            $isSecure = data_get($_SERVER, 'HTTP_X_FORWARDED_SSL') == 'on' ||
+                        data_get($_SERVER, 'SERVER_PORT') == 443 ||
+                        !!data_get($_SERVER, 'HTTPS') && (
+                            strtolower(data_get($_SERVER, 'HTTPS')) == 'on' || strtolower(data_get($_SERVER, 'HTTPS')) != 'off'
+                        );
+
+            $proto = $isSecure ? "https" : "http";
+        }
 
         $url = (!!$host ? ($proto . '://' . $host) : null);
 
-        $path = preg_replace('/^\//', '/', trim($path));
-        $path = preg_replace('/\/$/', '', $path);
+        $path = trim($path);
 
-        return $url . (!!$path ? $path : null);
+        if (!!$path && strpos($path, '?') !== 0) {
+            $path = preg_replace('/^\//', '/', $path);
+            $path = preg_replace('/\/$/', '', $path);
+            $path = (!!$path ? "/" . $path : null);
+        }
+
+        return $url . $path;
     }
 }

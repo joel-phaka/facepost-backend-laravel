@@ -135,6 +135,10 @@ return [
     */
 
     'providers' => [
+        /*
+         * Service Provider for setting config values that are dynamic, such as URLs.
+         */
+        App\Providers\DynamicConfigServiceProvider::class,
 
         /*
          * Laravel Framework Service Providers...

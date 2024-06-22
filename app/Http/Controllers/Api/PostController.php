@@ -25,7 +25,7 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        $searchQuery = trim(str_replace('%', null, $request->input('search_query')));
+        $searchQuery = trim(str_replace('%', '', $request->input('search_query')));
 
         if (!!$searchQuery) {
             $posts = Post::where('title', 'LIKE', "%{$searchQuery}%")

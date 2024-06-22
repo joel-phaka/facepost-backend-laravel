@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\AuthUtils;
+use App\Helpers\Utils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
@@ -17,6 +18,7 @@ use InvalidArgumentException;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
 use Stevebauman\Location\Facades\Location;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -40,13 +42,20 @@ class AuthController extends Controller
             }
         }
 
+        $grantUrls = [
+            'password' => config('services.passport.oauth_token_url'),
+            'refresh_token' => config('services.passport.oauth_token_refresh_url')
+        ];
+
+        $url = $grantUrls[$credentials['grant_type']];
+
         $credentials = array_merge($credentials, [
             'client_id' => config('services.passport.client_id'),
             'client_secret' => config('services.passport.client_secret'),
         ]);
 
         $response = Http::withOptions(['verify' => !config('app.debug')])
-            ->post(config('services.passport.oauth_token_url'), $credentials);
+            ->post($url, $credentials);
 
         if ($response->failed()) {
             throw new AuthenticationException("Unauthorized");
@@ -61,23 +70,33 @@ class AuthController extends Controller
             ->where('email', $request->input('email'))
             ->first();
 
-        if ($userFromEmail && !$userFromEmail->is_active) {
-            return response()->json(['message' => 'User account not active.'], 401);
+        if (!!$userFromEmail && !$userFromEmail->is_active) {
+            return response()->json([
+                'message' => 'The user account has been deactivated.',
+                'error_code' => 'account_deactivated',
+                'context' => 'auth_login'
+            ], 401);
         }
 
-        $credentials = array_merge(
-            ['grant_type' => 'password'],
-            $request->only('email', 'password')
-        );
+        try {
+            $credentials = array_merge(
+                ['grant_type' => 'password'],
+                $request->only('email', 'password')
+            );
 
-        $tokens = $this->getTokens($credentials);
-        $user = AuthUtils::findByAccessToken($tokens['access_token']);
+            $tokens = $this->getTokens($credentials);
+            $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
-        if (!!$user) {
+            abort_if(!$user, 401);
+
             return response()->json(array_merge($tokens, compact('user')));
+        } catch (Throwable $ex) {
+            return response()->json([
+                'message' => "Unauthorized",
+                'error_code' => "invalid_credentials",
+                'context' => 'auth_login'
+            ], 401);
         }
-
-        return response()->json(['message' => "Unauthorized"], 401);
     }
 
     public function refresh(Request $request)
@@ -86,19 +105,25 @@ class AuthController extends Controller
             'refresh_token' => 'required|string',
         ]);
 
-        $credentials = array_merge(
-            ['grant_type' => 'refresh_token'],
-            $request->only('refresh_token')
-        );
+        try {
+            $credentials = array_merge(
+                ['grant_type' => 'refresh_token'],
+                $request->only('refresh_token')
+            );
 
-        $tokens = $this->getTokens($credentials);
-        $user = AuthUtils::findByAccessToken($tokens['access_token']);
+            $tokens = $this->getTokens($credentials);
+            $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
-        if (!!$user) {
+            abort_if(!$user, 401);
+
             return response()->json(array_merge($tokens, compact('user')));
+        } catch (Throwable $ex) {
+            return response()->json([
+                'message' => "Unauthorized",
+                'error_code' => "invalid_refresh_token",
+                'context' => 'auth_refresh'
+            ], 401);
         }
-
-        return response()->json(['message' => "Unauthorized"], 401);
     }
 
     public function register(RegisterRequest $request)
@@ -121,7 +146,9 @@ class AuthController extends Controller
 
     public function logout()
     {
-        auth()->user()->token()->revoke();
+        $token = auth()->user()->token();
+
+        if (!!$token) $token->revoke();
 
         return response()->json(['message' => 'Logged out successfully']);
     }
@@ -174,7 +201,7 @@ class AuthController extends Controller
 
     private function createLoginLog($accessToken,  array $additionalData = array())
     {
-        if (($user = AuthUtils::findByAccessToken($accessToken))) {
+        if (($user = AuthUtils::findUserByAccessToken($accessToken))) {
             $loginLog = new LoginLog();
             $loginLog->user_id = $user->id;
             $loginLog->access_token = $accessToken;

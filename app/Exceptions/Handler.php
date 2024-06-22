@@ -2,7 +2,10 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Support\Str;
+use PeterPetrus\Auth\PassportToken;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -50,6 +53,25 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $exception)
     {
+        if ($exception instanceof AuthenticationException) {
+            if (in_array('auth:api', $request->route()->gatherMiddleware())) {
+                $accessToken = $request->bearerToken() ?? (!!($t = substr($request->server('HTTP_AUTHORIZATION'), 7)) ? $t : null);
+
+                if (!!$accessToken) {
+                    $accessTokenInfo = new PassportToken($accessToken);
+
+                    if ($accessTokenInfo->expired) {
+                        return response()->json([
+                            "message" => $exception->getMessage(),
+                            "error_code" => "expired_token",
+                            "context" => "access_token"
+                        ], 401);
+                    }
+                }
+            }
+        }
+
+
         return parent::render($request, $exception);
     }
 }

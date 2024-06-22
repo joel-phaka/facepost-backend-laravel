@@ -21,6 +21,7 @@
         "laravel/socialite": "^5.6",
         "laravel/tinker": "^2.5",
         "lcobucci/jwt": "3.3.3",
+        "peterpetrus/passport-token": "^0.1.0",
         "plank/laravel-metable": "^5.1",
         "stevebauman/location": "^6.5"
     },

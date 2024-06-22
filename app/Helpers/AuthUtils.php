@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\User;
 use Laravel\Passport\Token;
+use PeterPetrus\Auth\PassportToken;
 
 class AuthUtils
 {
@@ -69,10 +70,12 @@ class AuthUtils
         return  $token_id;
     }
 
-    public static function findByAccessToken($access_token)
+    public static function findUserByAccessToken($access_token)
     {
-        if (!!($token_id = self::getAccessTokenId($access_token)) && !!($tokenResult = Token::find($token_id))) {
-            return $tokenResult->user;
+        $tokenDetails = new PassportToken($access_token);
+
+        if ($tokenDetails->valid && $tokenDetails->token_id) {
+            return !!($token = Token::find($tokenDetails->token_id)) ? $token->user : null;
         }
 
         return null;

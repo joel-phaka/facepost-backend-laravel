@@ -51,6 +51,7 @@ class User extends Authenticatable
     protected $appends = [
         'profile_picture',
         'is_auth_user',
+        'initials'
     ];
 
     protected $withCount = [
@@ -118,6 +119,15 @@ class User extends Authenticatable
             $this->id == Auth::user()->id &&
             $this->email == Auth::user()->email &&
             $this->username == Auth::user()->username;
+    }
+
+    public function getInitialsAttribute()
+    {
+        $firstNameInitial = !!$this->first_name ? $this->first_name[0] : null;
+        $lastNameArr = !!$this->last_name ? explode(' ', $this->last_name) : [];
+        $lastNameInitial = empty($lastNameArr) ? null : $lastNameArr[count($lastNameArr) - 1][0];
+
+        return "{$firstNameInitial}{$lastNameInitial}";
     }
 
     public function hasLiked($likeable)

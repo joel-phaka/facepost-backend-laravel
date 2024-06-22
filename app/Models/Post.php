@@ -24,11 +24,11 @@ class Post extends Model
 
     protected $hidden = ['meta'];
 
-    protected $with = ['user', 'gallery'];
+    protected $with = ['user'];
 
     protected $withCount = ['likes', 'comments'];
 
-    protected $appends = ['poster_image', 'poster_image_thumb'];
+    protected $appends = ['poster_image', 'poster_image_thumb', 'gallery_images_count'];
 
     public function user()
     {
@@ -68,5 +68,10 @@ class Post extends Model
             return $posterImage->thumb_url;
         }
         return null;
+    }
+
+    public function getGalleryImagesCountAttribute()
+    {
+        return !$this->gallery_id ? 0 : Image::where('gallery_id', $this->gallery_id)->count();
     }
 }
