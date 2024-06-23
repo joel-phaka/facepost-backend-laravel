@@ -28,9 +28,7 @@ class DynamicConfigServiceProvider extends ServiceProvider
             ]);
         }
 
-        foreach ($configMapping as $key => $value) {
-            config([$key => $value]);
-        }
+        config($configMapping);
     }
 
     /**
