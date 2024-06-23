@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,6 +15,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        URL::forceRootUrl(config('app.url'));
+        if (strpos(config('app.url'), "https") === 0) {
+            URL::forceScheme('https');
+        }
+
         Paginator::currentPathResolver(function () {
             $path = trim(request()->path(), '/');
 
