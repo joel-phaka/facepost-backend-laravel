@@ -11,7 +11,7 @@ class AddLikeableUsersRelationship extends Migration
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::table('likeable', function (Blueprint $table) {
             $table->foreign('user_id')
@@ -26,7 +26,7 @@ class AddLikeableUsersRelationship extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::table('likeable', function (Blueprint $table) {
             $table->dropForeign(['user_id']);

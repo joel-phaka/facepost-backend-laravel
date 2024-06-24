@@ -11,7 +11,7 @@ class AddGalleryUsersRelationship extends Migration
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::table('gallery', function (Blueprint $table) {
             $table->foreign('user_id')
@@ -25,7 +25,7 @@ class AddGalleryUsersRelationship extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::table('gallery', function (Blueprint $table) {
             $table->dropForeign(['user_id']);

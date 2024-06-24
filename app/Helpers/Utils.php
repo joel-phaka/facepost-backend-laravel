@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class Utils
 {
-    public static function formatPagination(LengthAwarePaginator $paginator, array $appends = [])
+    public static function formatPagination(LengthAwarePaginator $paginator, array $appends = []): array
     {
         $meta = $paginator->toArray();
         $data = $meta['data'] ?? [];
@@ -36,35 +36,20 @@ class Utils
         return self::formatPagination($collection->paginate($itemsPerPage), $appends);
     }
 
-    public static function extractNonNullOrEmpty(array $arr)
+    public static function extractNonNullOrEmpty(array $arr): array
     {
         return array_filter($arr, function($v) {
-            return !is_null($v) && !empty($v) && (is_string($v) ? !!trim($v) : true);
+            if (is_numeric($v) || is_array($v)) {
+                return true;
+            } else if (is_string($v)) {
+                return !!trim($v);
+            }
+
+            return !empty($v);
         });
     }
 
-    public static function unset(&$data, ...$keys)
-    {
-        if (!(is_object($data) || is_array($data))) {
-            return $data;
-        }
-
-        $keys = is_array($keys) || is_array(data_get($keys, 0))
-            ? (is_array(data_get($keys, 0)) ? data_get($keys, 0) : $keys)
-            : [];
-
-        foreach ($keys as $key) {
-            if (is_object($data) && property_exists($data, $key)) {
-                unset($data->$key);
-            } else if (is_array($data) && array_key_exists($key, $data)) {
-                unset($data[$key]);
-            }
-        }
-
-        return $data;
-    }
-
-    public static function baseUrl($path = null)
+    public static function baseUrl($path = null): string
     {
         $host = data_get($_SERVER, 'HTTP_X_FORWARDED_HOST') ?: data_get($_SERVER,'HTTP_HOST');
         $proto = null;
@@ -85,7 +70,7 @@ class Utils
 
         $path = trim($path);
 
-        if (!!$path && strpos($path, '?') !== 0) {
+        if (!!$path && !str_starts_with($path, '?')) {
             $path = preg_replace('/^\//', '/', $path);
             $path = preg_replace('/\/$/', '', $path);
             $path = (!!$path ? "/" . $path : null);

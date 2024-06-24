@@ -11,7 +11,7 @@ class CreateLikeableTable extends Migration
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('likeable', function (Blueprint $table) {
             $table->id();
@@ -27,7 +27,7 @@ class CreateLikeableTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::dropIfExists('likeable');
     }

@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use App\Traits\HasMeta;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Plank\Metable\Metable;
 
 class UserDetail extends Model
 {
-    use Metable;
+    use Metable, HasFactory;
 
     protected $primaryKey = 'user_id';
 

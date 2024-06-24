@@ -2,19 +2,16 @@
 
 namespace App\Models;
 
-use App\Models\Gallery;
-use App\Traits\HasMeta;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Passport\HasApiTokens;
-use Laravel\Passport\Token;
 use Plank\Metable\Metable;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, Metable;
+    use HasApiTokens, Notifiable, Metable, HasFactory;
 
     /**
      * The attributes that are mass assignable.

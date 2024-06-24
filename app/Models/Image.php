@@ -5,13 +5,14 @@ namespace App\Models;
 use App\Models\Gallery;
 use App\Traits\HasLikes;
 use App\Traits\HasMeta;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 use Plank\Metable\Metable;
 
 class Image extends Model
 {
-    use HasLikes, Metable;
+    use HasLikes, Metable, HasFactory;
 
     protected $fillable = [
         'caption',

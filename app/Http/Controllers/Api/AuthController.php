@@ -78,7 +78,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        try {
+        //try {
             $credentials = array_merge(
                 ['grant_type' => 'password'],
                 $request->only('email', 'password')
@@ -90,13 +90,13 @@ class AuthController extends Controller
             abort_if(!$user, 401);
 
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (Throwable $ex) {
+        /*} catch (Throwable $ex) {
             return response()->json([
                 'message' => "Unauthorized",
                 'error_code' => "invalid_credentials",
                 'context' => 'auth_login'
             ], 401);
-        }
+        }*/
     }
 
     public function refresh(Request $request)

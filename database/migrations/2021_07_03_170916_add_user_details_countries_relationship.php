@@ -11,7 +11,7 @@ class AddUserDetailsCountriesRelationship extends Migration
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         Schema::table('user_details', function (Blueprint $table) {
             $table->foreign('country_code')
@@ -26,7 +26,7 @@ class AddUserDetailsCountriesRelationship extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         Schema::table('user_details', function (Blueprint $table) {
             $table->dropForeign(['country_code']);

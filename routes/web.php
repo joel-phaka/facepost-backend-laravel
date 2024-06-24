@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
 |
 */
 
@@ -31,9 +31,8 @@ Route::get('/files/{path}', function ($path) {
     'path' => '.+',
 ]);;
 
-Route::get('/login/{provider}', 'Api\AuthController@redirectToProvider')
+Route::get('/login/{provider}', 'App\Http\Controllers\Api\AuthController@redirectToProvider')
     ->where('provider', '(' . implode('|', config('services.providers_list')) . ')');
 
-Route::get('/login/{provider}/callback', 'Api\AuthController@handleProviderCallback')
+Route::get('/login/{provider}/callback', 'App\Http\Controllers\Api\AuthController@handleProviderCallback')
     ->where('provider', '(' . implode('|', config('services.providers_list')) . ')');
-

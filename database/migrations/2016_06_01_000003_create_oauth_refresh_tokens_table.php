@@ -28,7 +28,7 @@ class CreateOauthRefreshTokensTable extends Migration
      *
      * @return void
      */
-    public function up()
+    public function up(): void
     {
         $this->schema->create('oauth_refresh_tokens', function (Blueprint $table) {
             $table->string('id', 100)->primary();
@@ -43,7 +43,7 @@ class CreateOauthRefreshTokensTable extends Migration
      *
      * @return void
      */
-    public function down()
+    public function down(): void
     {
         $this->schema->dropIfExists('oauth_refresh_tokens');
     }
@@ -53,7 +53,7 @@ class CreateOauthRefreshTokensTable extends Migration
      *
      * @return string|null
      */
-    public function getConnection()
+    public function getConnection(): ?string
     {
         return config('passport.storage.database.connection');
     }
