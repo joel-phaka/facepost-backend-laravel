@@ -58,7 +58,11 @@ class AuthController extends Controller
             ->post($url, $credentials);
 
         if ($response->failed()) {
-            throw new AuthenticationException("Unauthorized");
+            if ($response->status() === 400) {
+                throw new AuthenticationException("Unauthorized");
+            } else {
+                throw $response->toException();
+            }
         }
 
         return $response->json();
@@ -73,12 +77,11 @@ class AuthController extends Controller
         if (!!$userFromEmail && !$userFromEmail->is_active) {
             return response()->json([
                 'message' => 'The user account has been deactivated.',
-                'error_code' => 'account_deactivated',
-                'context' => 'auth_login'
+                'error_code' => 'auth_account_deactivated',
             ], 401);
         }
 
-        //try {
+        try {
             $credentials = array_merge(
                 ['grant_type' => 'password'],
                 $request->only('email', 'password')
@@ -90,13 +93,17 @@ class AuthController extends Controller
             abort_if(!$user, 401);
 
             return response()->json(array_merge($tokens, compact('user')));
-        /*} catch (Throwable $ex) {
+        } catch (AuthenticationException $ex) {
             return response()->json([
                 'message' => "Unauthorized",
-                'error_code' => "invalid_credentials",
-                'context' => 'auth_login'
+                'error_code' => "auth_invalid_credentials",
             ], 401);
-        }*/
+        } catch (Throwable $ex) {
+            return response()->json([
+                'message' => "Internal Server Error",
+                'error_code' => "auth_internal_error",
+            ], 500);
+        }
     }
 
     public function refresh(Request $request)
@@ -117,12 +124,16 @@ class AuthController extends Controller
             abort_if(!$user, 401);
 
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (Throwable $ex) {
+        } catch (AuthenticationException $ex) {
             return response()->json([
                 'message' => "Unauthorized",
-                'error_code' => "invalid_refresh_token",
-                'context' => 'auth_refresh'
+                'error_code' => "auth_invalid_refresh_token",
             ], 401);
+        } catch (Throwable $ex) {
+            return response()->json([
+                'message' => "Internal Server Error",
+                'error_code' => "auth_internal_error",
+            ], 500);
         }
     }
 

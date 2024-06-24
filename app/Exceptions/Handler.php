@@ -69,8 +69,7 @@ class Handler extends ExceptionHandler
                     if ($accessTokenInfo->expired) {
                         return response()->json([
                             "message" => $exception->getMessage(),
-                            "error_code" => "expired_token",
-                            "context" => "access_token"
+                            "error_code" => "auth_expired_token",
                         ], 401);
                     }
                 }
