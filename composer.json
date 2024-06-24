@@ -16,7 +16,8 @@
         "peterpetrus/passport-token": "^0.1.0",
         "plank/laravel-metable": "^6.0",
         "stevebauman/location": "^7.3",
-        "ext-fileinfo": "*"
+        "ext-fileinfo": "*",
+        "ext-json": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
