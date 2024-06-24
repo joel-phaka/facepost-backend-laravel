@@ -58,7 +58,7 @@ class AuthController extends Controller
             ->post($url, $credentials);
 
         if ($response->failed()) {
-            if ($response->status() === 400) {
+            if ($response->status() == 400) {
                 throw new AuthenticationException("Unauthorized");
             } else {
                 throw $response->toException();
