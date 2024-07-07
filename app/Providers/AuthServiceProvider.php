@@ -25,6 +25,7 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         Passport::enablePasswordGrant();
+        Passport::ignoreCsrfToken();
         Passport::tokensExpireIn(now()->addHour());
         Passport::refreshTokensExpireIn(now()->addMonth());
     }

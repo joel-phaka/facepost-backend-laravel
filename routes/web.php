@@ -36,3 +36,18 @@ Route::get('/login/{provider}', 'App\Http\Controllers\Api\AuthController@redirec
 
 Route::get('/login/{provider}/callback', 'App\Http\Controllers\Api\AuthController@handleProviderCallback')
     ->where('provider', '(' . implode('|', config('services.providers_list')) . ')');
+
+Route::group([
+    'prefix' => 'oauth'
+], function () {
+    Route::post('/token', [
+        'uses' => '\Laravel\Passport\Http\Controllers\AccessTokenController@issueToken',
+        'as' => 'token',
+        'middleware' => 'throttle',
+    ]);
+
+    Route::post('/token/refresh', [
+        'uses' => '\Laravel\Passport\Http\Controllers\AccessTokenController@issueToken',
+        'as' => 'token.refresh',
+    ]);
+});

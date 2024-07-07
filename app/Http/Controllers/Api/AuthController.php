@@ -54,12 +54,19 @@ class AuthController extends Controller
             'client_secret' => config('services.passport.client_secret'),
         ]);
 
-        $response = Http::withOptions(['verify' => !config('app.debug')])
+        $options = ['verify' => !config('app.debug')];
+
+        if (config('app.debug')) {
+            $options['timeout'] = 120;
+        }
+
+        $response = Http::withOptions($options)
+            ->acceptJson()
             ->post($url, $credentials);
 
         if ($response->failed()) {
             if ($response->status() == 400) {
-                throw new AuthenticationException("Unauthorized");
+                throw new AuthenticationException(!!trim($response->body()) ? $response->body() : "Unauthorized");
             } else {
                 throw $response->toException();
             }
