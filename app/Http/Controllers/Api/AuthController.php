@@ -6,6 +6,7 @@ use App\Helpers\AuthUtils;
 use App\Helpers\Utils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\LoginLog;
 use App\Models\User;
@@ -57,7 +58,7 @@ class AuthController extends Controller
         $options = ['verify' => !config('app.debug')];
 
         if (config('app.debug')) {
-            $options['timeout'] = 120;
+            $options['timeout'] = 240;
         }
 
         $response = Http::withOptions($options)
@@ -113,12 +114,8 @@ class AuthController extends Controller
         }
     }
 
-    public function refresh(Request $request)
+    public function refresh(RefreshTokenRequest $request)
     {
-        $this->validate($request, [
-            'refresh_token' => 'required|string',
-        ]);
-
         try {
             $credentials = array_merge(
                 ['grant_type' => 'refresh_token'],
