@@ -27,12 +27,16 @@ class Utils
         ];
     }
 
-    public static function paginate($collection, ?int $perPage = 20, array $appends = [])
+    public static function paginate($collection, ?int $perPage = null, array $appends = []): array
     {
-        $itemsPerPage = intval($perPage) > 0 ? $perPage : 20;
+        $itemsPerPage = intval($perPage) ?: config('const.pagination.items_per_page');
 
         if (request()->has('per_page') && is_numeric(request()->input('per_page'))) {
             $itemsPerPage = intval(request()->input('per_page'));
+        }
+
+        if ($itemsPerPage < 1 || $itemsPerPage > config('const.pagination.max_items_per_page')) {
+            $itemsPerPage = 10;
         }
 
         $appends['per_page'] = $itemsPerPage;

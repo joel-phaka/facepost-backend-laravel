@@ -21,7 +21,7 @@ trait HandlesBulkImages
         $metaFromImages = [];
 
         $galleryImagesCount = null;
-        $galleryMaxImages = config('const.gallery.max_images') ?: 5;
+        $galleryMaxImages = config('const.gallery.max_images');
 
         if ($gallery) {
             $gallery->verifyAuthUser(true);
