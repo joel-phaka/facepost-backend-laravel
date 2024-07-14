@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\RelationOfActiveUsers;
 use App\Traits\VerifiesAuthUser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,7 +14,7 @@ use Illuminate\Support\Str;
 
 class Gallery extends Model
 {
-    use VerifiesAuthUser, HasFactory;
+    use VerifiesAuthUser, HasFactory, RelationOfActiveUsers;
 
     protected $table = 'gallery';
     protected $fillable = [

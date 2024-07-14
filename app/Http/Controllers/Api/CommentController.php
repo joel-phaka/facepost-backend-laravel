@@ -17,8 +17,9 @@ class CommentController extends Controller
 {
     public function index()
     {
-        $comments = Comment::whereNull('parent_id')
-            ->latest('created_at');
+        $comments = Comment::ofActiveUsers()
+            ->whereNull('parent_id')
+            ->latest();
 
         return response()->json(Utils::paginate($comments));
     }
@@ -66,17 +67,19 @@ class CommentController extends Controller
 
     public function getPostComments(Post $post)
     {
-        $comments = $post->comments()
+        $comments = Comment::ofActiveUsers()
+            ->where('post_id', $post->id)
             ->whereNull('parent_id')
-            ->latest('created_at');
+            ->latest();
 
         return response()->json(Utils::paginate($comments));
     }
 
     public function thread(Comment $comment)
     {
-        $comments = Comment::where('parent_id', $comment->id)
-            ->latest('created_at');
+        $comments = Comment::ofActiveUsers()
+            ->where('parent_id', $comment->id)
+            ->latest();
 
         return response()->json(Utils::paginate($comments));
     }

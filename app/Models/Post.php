@@ -5,7 +5,9 @@ namespace App\Models;
 use App\Models\Gallery;
 use App\Traits\HasLikes;
 use App\Traits\HasMeta;
+use App\Traits\RelationOfActiveUsers;
 use App\Traits\VerifiesAuthUser;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +15,7 @@ use Plank\Metable\Metable;
 
 class Post extends Model
 {
-    use HasLikes, Metable, VerifiesAuthUser, HasFactory;
+    use HasLikes, Metable, VerifiesAuthUser, HasFactory, RelationOfActiveUsers;
 
     protected $fillable = [
         'title',

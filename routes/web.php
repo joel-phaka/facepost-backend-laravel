@@ -21,7 +21,7 @@ Route::get('/files/{path}', function ($path) {
     $filepath = storage_path("app" . DIRECTORY_SEPARATOR . "public" . DIRECTORY_SEPARATOR . $path);
     $pathInfo = pathinfo($filepath);
 
-    if (file_exists($filepath) && isset($pathInfo['basename']) && strpos($pathInfo['basename'], '.') !== 0) {
+    if (file_exists($filepath) && isset($pathInfo['basename']) && !str_starts_with($pathInfo['basename'], '.')) {
         $mimeType = mime_content_type($filepath);
         return response()->file($filepath, ['Content-Type' => $mimeType]);
     }
@@ -31,11 +31,14 @@ Route::get('/files/{path}', function ($path) {
     'path' => '.+',
 ]);;
 
-Route::get('/login/{provider}', 'App\Http\Controllers\Api\AuthController@redirectToProvider')
-    ->where('provider', '(' . implode('|', config('services.providers_list')) . ')');
-
-Route::get('/login/{provider}/callback', 'App\Http\Controllers\Api\AuthController@handleProviderCallback')
-    ->where('provider', '(' . implode('|', config('services.providers_list')) . ')');
+Route::group([
+    'prefix' => 'login'
+], function () {
+    Route::get('/{provider}', 'App\Http\Controllers\Api\AuthController@redirectToProvider')
+        ->whereIn('provider', config('services.providers_list'));
+    Route::get('/{provider}/callback', 'App\Http\Controllers\Api\AuthController@handleProviderCallback')
+        ->whereIn('provider', config('services.providers_list'));
+});
 
 Route::group([
     'prefix' => 'oauth'

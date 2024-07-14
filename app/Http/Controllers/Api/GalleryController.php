@@ -15,7 +15,7 @@ class GalleryController extends Controller
 
     public function index()
     {
-        return response()->json(Utils::paginate(Gallery::latest()));
+        return response()->json(Utils::paginate(Gallery::ofActiveUsers()->latest()));
     }
 
     public function store(CreateGalleryRequest $request)

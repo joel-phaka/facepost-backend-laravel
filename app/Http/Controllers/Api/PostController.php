@@ -25,17 +25,23 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        $searchQuery = trim(str_replace('%', '', $request->input('search_query')));
+        if ($request->has('search_query')) {
+            $searchQuery = trim(preg_replace('/%+/', '', $request->input('search_query')));
+            $appends = $request->only(['search_query']);
+            $posts = (new Post)->newCollection();
 
-        if (!!$searchQuery) {
-            $posts = Post::where('title', 'LIKE', "%{$searchQuery}%")
-                ->orWhere('content', 'LIKE', "%{$searchQuery}%")
-                ->latest();
+            if (!!$searchQuery) {
+                $posts = Post::ofActiveUsers()
+                    ->where('title', 'LIKE', "%{$searchQuery}%")
+                    ->orWhere('content', 'LIKE', "%{$searchQuery}%")
+                    ->latest();
 
-            return response()->json(Utils::paginate($posts, 20, ['search_query' => $request->input('search_query')]));
+            }
+
+            return response()->json(Utils::paginate($posts, null, $appends));
         }
 
-        return response()->json(Utils::paginate(Post::latest()));
+        return response()->json(Utils::paginate(Post::ofActiveUsers()->latest()));
     }
 
     /**

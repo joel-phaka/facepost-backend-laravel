@@ -9,7 +9,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class Utils
 {
-    public static function formatPagination(LengthAwarePaginator $paginator, array $appends = []): array
+    public static function formatPagination(LengthAwarePaginator $paginator): array
     {
         $meta = $paginator->toArray();
         $data = $meta['data'] ?? [];
@@ -18,22 +18,29 @@ class Utils
 
         $meta['is_last_page'] = $meta['current_page'] == $meta['last_page'];
         $meta['has_more_pages'] = $meta['current_page'] < $meta['last_page'];
+        $meta['has_data'] = count($data) > 0;
+        $meta['is_empty'] = count($data) == 0;
 
-        return array_merge($appends, [
+        return [
             'meta' => $meta,
             'data' => $data
-        ]);
+        ];
     }
 
-    public static function paginate($collection, int $perPage = 20, array $appends = [])
+    public static function paginate($collection, ?int $perPage = 20, array $appends = [])
     {
-        $itemsPerPage = $perPage > 0 ? $perPage : 20;
+        $itemsPerPage = intval($perPage) > 0 ? $perPage : 20;
 
         if (request()->has('per_page') && is_numeric(request()->input('per_page'))) {
-            $itemsPerPage = (int)request()->input('per_page');
+            $itemsPerPage = intval(request()->input('per_page'));
         }
 
-        return self::formatPagination($collection->paginate($itemsPerPage), $appends);
+        $appends['per_page'] = $itemsPerPage;
+
+        $collection = $collection->paginate($itemsPerPage);
+        $collection->appends($appends);
+
+        return self::formatPagination($collection);
     }
 
     public static function extractNonNullOrEmpty(array $arr): array

@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Traits\HasLikes;
+use App\Traits\RelationOfActiveUsers;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Comment extends Model
 {
-    use HasLikes, HasFactory;
+    use HasLikes, HasFactory, RelationOfActiveUsers;
 
     /**
      * The attributes that are mass assignable.
