@@ -25,7 +25,7 @@ class DynamicConfigServiceProvider extends ServiceProvider
                 'services.google.redirect'                  => $appUrl . '/login/google/callback',
                 'services.passport.oauth_token_url'         => $appUrl . '/oauth/token',
                 'services.passport.oauth_token_refresh_url' => $appUrl . '/oauth/token/refresh',
-                'filesystems.files_link'                    => $appUrl . '/files',
+                'filesystems.files_link.url'                => $appUrl . '/files',
             ]);
         }
 

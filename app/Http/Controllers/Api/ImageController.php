@@ -25,18 +25,19 @@ class ImageController extends Controller
 
     public function upload(UploadImageRequest $request)
     {
-        $images = $this->handleImageUploads();
+        $result = $this->handleImageUploads();
 
         return response()->json([
-            'success' => !!count($images),
-            'images' => $images
+            'data' => array_values($result['images'])
         ]);
     }
 
     public function destroy(Request $request)
     {
-        $fileDelete = $this->deleteImagesFromRequest();
+        $removeImages = is_array(request()->input('remove_images')) ? request()->input('remove_images') : [];
+        $success = $this->deleteImages(null, $removeImages);
+        $status = $success ? 200 : 500;
 
-        return response()->json(['success' => $fileDelete]);
+        return response()->json(['success' => $success], $status);
     }
 }

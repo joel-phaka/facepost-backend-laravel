@@ -23,7 +23,7 @@ class GalleryController extends Controller
         $gallery = Gallery::create($request->only(['name']));
 
         if ($gallery) {
-            $this->handleImageUploads($gallery, true);
+            $this->handleImageUploads($gallery);
         }
 
         return $gallery->refresh();
@@ -33,19 +33,17 @@ class GalleryController extends Controller
     {
         $gallery->update($request->only(['name']));
 
-        $this->handleImageUploads($gallery, true);
+        $this->handleImageUploads($gallery);
 
         return $gallery->refresh();
     }
 
     public function destroy(Gallery $gallery)
     {
-        $isDeleted = $gallery->delete();
-        $imagesDeleted = $this->deleteImagesFromRequest($gallery);
+        $success = $gallery->delete();
+        $this->deleteImages($gallery);
+        $status = $success ? 200 : 500;
 
-        return response()->json(
-            ['success' => !!$isDeleted && $imagesDeleted],
-            $isDeleted && $imagesDeleted ? 200 : 500
-        );
+        return response()->json(['success' => $success], $status);
     }
 }

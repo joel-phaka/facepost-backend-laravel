@@ -56,6 +56,12 @@ return [
             'throw' => false,
         ],
 
+        'images' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public/images'),
+            'url' => env('APP_URL').'/storage/images',
+            'visibility' => 'public',
+        ],
     ],
 
     /*
@@ -72,7 +78,12 @@ return [
     'links' => [
         public_path('storage') => storage_path('app/public'),
     ],
-    'files_link' => env('APP_URL') . '/files',
+
+    'files_link' => [
+        'url' => env('APP_URL') . '/files',
+        'allowed_extensions' => ['jpg', 'jpeg', 'png'],
+    ],
+
     'images' => [
         'max_count' => 5,
         'max_size' => 2048,

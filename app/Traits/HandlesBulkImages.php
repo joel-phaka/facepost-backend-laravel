@@ -4,21 +4,23 @@ namespace App\Traits;
 
 use App\Models\Gallery;
 use App\Models\Image;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Facades\Image as ImageManager;
+use Intervention\Image\Laravel\Facades\Image as ImageManager;
 
 trait HandlesBulkImages
 {
-    protected function handleImageUploads(Gallery $gallery = null, $verifyMaxImages = false, $metaOfInterest = [])
+    protected function handleImageUploads(?Gallery $gallery = null, array $metaOfInterest = []): array
     {
         $imageFiles = is_array(request()->file('image_files')) ? request()->file('image_files') : [];
         $imageData = is_array(request()->input('image_data')) ? request()->input('image_data') : [];
         $removeImages = is_array(request()->input('remove_images')) ? request()->input('remove_images') : [];
         $newFiles = [];
         $validImages = [];
-        $metaFromImages = [];
+        $metaFromImages = ['index_mapping' => []];
 
         $galleryImagesCount = null;
         $galleryMaxImages = config('const.gallery.max_images');
@@ -56,8 +58,7 @@ trait HandlesBulkImages
 
                 $image = $image->first();
 
-            }
-            else if (array_key_exists('file_id', $imageInfo) && !empty($imageFiles[$imageInfo['file_id']])) {
+            } else if (array_key_exists('file_id', $imageInfo) && !empty($imageFiles[$imageInfo['file_id']])) {
                 $file = $imageFiles[$imageInfo['file_id']];
 
                 if ($file->isFile() && $file->isValid()) {
@@ -69,10 +70,10 @@ trait HandlesBulkImages
 
                     $image = new Image();
                     $image->user_id = Auth::id();
-                    $name = date('Ymd') . '-' . Auth::id() . '-' . Str::random(32) . '-' . (!!$gallery && !!$gallery->id ? $gallery->id : '');
+                    $name = date('Ymd') . '-' . Auth::id() . '-' . Str::random(32) . ($gallery?->id ? '-' . $gallery->id : '');
                     $image->name = "{$name}." . $file->extension();
                     $image->thumb_name = "{$name}_thumb." . $file->extension();
-                    list($width, $height) = getimagesize($file->path());
+                    [$width, $height] = getimagesize($file->path());
                     $image->width = $width;
                     $image->height = $height;
                     $image->type = $file->getMimeType();
@@ -101,15 +102,11 @@ trait HandlesBulkImages
                         ];
                     }
 
-                    if (empty($metaFromImages['original_indexes']) || !is_array($metaFromImages['original_indexes'])) {
-                        $metaFromImages['original_indexes'] = [];
-                    }
-                    $metaFromImages['original_indexes'][$image->id] = $i;
-
+                    $metaFromImages['index_mapping'][$image->id] = $i;
                     $validImages[$image->id] = $image;
 
                     foreach ($metaOfInterest as $mk => $mv) {
-                        if (array_key_exists($mk, $imageInfo) && (!!trim($imageInfo[$mk]) || $imageInfo[$mk] === 0)) {
+                        if (array_key_exists($mk, $imageInfo) && (!!trim($imageInfo[$mk]) || is_numeric($imageInfo[$mk]))) {
                             if (empty($metaFromImages[$mk])) {
                                 $metaFromImages[$mk] = [];
                             }
@@ -130,10 +127,8 @@ trait HandlesBulkImages
             if ($file->storeAs('/', $name, 'images')) {
                 $thumb_width = config('const.images.thumb_width') ?: 320;
                 $thumb_height = config('const.images.thumb_height') ?: 180;
-                $interventionImage = ImageManager::make(Storage::disk('images')->get($name));
-                $interventionImage->fit($thumb_width, $thumb_height, function ($constraint) {
-                    $constraint->upsize();
-                });
+                $interventionImage = ImageManager::read(Storage::disk('images')->get($name));
+                $interventionImage->scale($thumb_width, $thumb_height);
                 $interventionImage->save(config('filesystems.disks.images.root') . '/' . $thumb_name);
             }
             else {
@@ -151,20 +146,7 @@ trait HandlesBulkImages
             }
         }
 
-        if (!!count($removeImages)) {
-            $imagesToDelete = Auth::user()->images()
-                ->whereIn('id', $removeImages)
-                ->get();
-
-            foreach ($imagesToDelete as $image) {
-                if ($image->delete()) {
-                    Storage::disk('images')->delete($image->name);
-                    if (!!$image->thumb_name) {
-                        Storage::disk('images')->delete($image->thumb_name);
-                    }
-                }
-            }
-        }
+        $this->deleteImages($gallery, $removeImages);
 
         return [
             'images' => $validImages,
@@ -172,37 +154,41 @@ trait HandlesBulkImages
         ];
     }
 
-    protected function deleteImagesFromRequest(Gallery $gallery = null)
+    protected function deleteImages(?Gallery $gallery = null,  array $imageIds = []): bool
     {
-        $removeImages = is_array(request()->input('remove_images')) ? request()->input('image_remove') : [];
+        $countDeleted = false;
+        $query = DB::table('images')
+            ->select(['id', 'name', 'thumb_name', 'gallery_id'])
+            ->where('user_id', Auth::id());
 
-        if ($gallery) {
-            $gallery->verifyAuthUser(true);
+        if (!!$gallery) {
+            if ($gallery->verifyAuthUser()) {
+                return false;
+            }
+
+            $query->where('galley_id', $gallery->id)
+                  ->when(
+                      count($imageIds),
+                      fn(QueryBuilder $q) => $q->whereIn('id', $imageIds)
+                  );
+        } else {
+            $query->whereIn('id', $imageIds);
         }
 
-        $errorCount = 0;
+        $imagesToDelete = $query->get();
 
-        if (count($removeImages)) {
-            $imagesToDelete = Auth::user()->images()
-                ->whereIn('id', $removeImages);
-
-            if (!!$imagesToDelete) {
-                $imagesToDelete = $imagesToDelete->where('gallery_id', $gallery->id);
-            }
+        if (count($imagesToDelete)) {
+            $countDeleted = Image::destroy($imagesToDelete->pluck(['id']));
 
             foreach ($imagesToDelete as $image) {
-                if ($image->delete()) {
-                    Storage::disk('images')->delete($image->name);
-                    if (!!$image->thumb_name) {
-                        Storage::disk('images')->delete($image->thumb_name);
-                    }
-                }
-                else {
-                    $errorCount++;
+                Storage::disk('images')->delete($image->name);
+
+                if (!empty($image->thumb_name)) {
+                    Storage::disk('images')->delete($image->thumb_name);
                 }
             }
         }
 
-        return $errorCount == 0;
+        return $countDeleted > 0;
     }
 }
