@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Gallery;
 use App\Traits\HasLikes;
 use App\Traits\HasMeta;
+use App\Traits\VerifiesAuthUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -12,7 +13,7 @@ use Plank\Metable\Metable;
 
 class Image extends Model
 {
-    use HasLikes, Metable, HasFactory;
+    use HasLikes, Metable, HasFactory, VerifiesAuthUser;
 
     protected $fillable = [
         'caption',
@@ -31,7 +32,7 @@ class Image extends Model
     protected $appends = [
         'url',
         'thumb_url',
-        'is_user_image',
+        'belongs_to_auth_user',
     ];
 
     public function user()
@@ -57,9 +58,5 @@ class Image extends Model
     public function getThumbUrlAttribute()
     {
         return $this->thumb_name && config('filesystems.files_link.url') ? config('filesystems.files_link.url') . '/images/' . $this->thumb_name : null;
-    }
-
-    public function getIsUserImageAttribute() {
-        return $this->getAttribute('user_id') == Auth::id();
     }
 }

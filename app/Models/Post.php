@@ -2,20 +2,16 @@
 
 namespace App\Models;
 
-use App\Models\Gallery;
 use App\Traits\HasLikes;
-use App\Traits\HasMeta;
 use App\Traits\RelationOfActiveUsers;
 use App\Traits\VerifiesAuthUser;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 use Plank\Metable\Metable;
 
 class Post extends Model
 {
-    use HasLikes, Metable, VerifiesAuthUser, HasFactory, RelationOfActiveUsers;
+    use HasLikes, Metable, VerifiesAuthUser, HasFactory, RelationOfActiveUsers, VerifiesAuthUser;
 
     protected $fillable = [
         'title',
@@ -25,13 +21,26 @@ class Post extends Model
         'meta',
     ];
 
-    protected $hidden = ['meta'];
+    protected $hidden = [
+        'meta'
+    ];
 
-    protected $with = ['user'];
+    protected $with = [
+        'user',
+        'gallery'
+    ];
 
-    protected $withCount = ['likes', 'comments'];
+    protected $withCount = [
+        'likes',
+        'comments'
+    ];
 
-    protected $appends = ['poster_image', 'poster_image_thumb', 'gallery_images_count'];
+    protected $appends = [
+        'poster_image',
+        'poster_image_thumb',
+        'gallery_images_count',
+        'belongs_to_auth_user'
+    ];
 
     public function user()
     {

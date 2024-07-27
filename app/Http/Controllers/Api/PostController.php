@@ -21,6 +21,7 @@ class PostController extends Controller
     /**
      * Display a listing of the resource.
      *
+     * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
@@ -59,15 +60,17 @@ class PostController extends Controller
 
         if ($post->save()) {
             $posterImageId = null;
-            $gallery = null;
+            $galleryId = intval($request->input('gallery_id'));
 
-            if (intval($request->input('gallery_id')) && !!$request->input('gallery_id')) {
+            if (!!$galleryId) {
                 $copyGalleryResult = null;
-                $gallery = $this->copyGalleryFromRequest($copyGalleryResult);
-                $selectedPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
+                $gallery = $this->copyGalleryFromRequest($post->title, $copyGalleryResult);
 
-                if (!!$selectedPosterImage) {
-                    $posterImageId = $selectedPosterImage->id;
+                if (!!$gallery && $post->update(['gallery_id' => $gallery->id])) {
+                    $copiedGalleryPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
+                    if (!!$copiedGalleryPosterImage) {
+                        $posterImageId = $copiedGalleryPosterImage->id;
+                    }
                 }
             } else if (is_array($request->input('image_data')) && is_array($request->file('image_files'))) {
                 $gallery = Gallery::create([
@@ -75,28 +78,31 @@ class PostController extends Controller
                     'user_id' => Auth::id()
                 ]);
 
-                $result = $this->handleImageUploads($gallery);
+                if ($gallery && $post->update(['gallery_id' => $gallery->id])) {
+                    $result = $this->handleImageUploads($gallery);
 
-                if (!!count($result['images']) && is_array(data_get($result, 'meta.index_mapping')) && !!count(data_get($result, 'meta.index_mapping'))) {
-                    if ($request->input('poster_image') || is_numeric($request->input('poster_image'))) {
-                        $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.index_mapping'));
+                    if (!!count($result['images']) && is_array(data_get($result, 'meta.index_mapping')) && !!count(data_get($result, 'meta.index_mapping'))) {
+                        if ($request->input('poster_image') || is_numeric($request->input('poster_image'))) {
+                            $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.index_mapping'));
+                        }
                     }
                 }
             }
 
-            if (!!$gallery) {
-                $post->gallery_id = $gallery->id;
-                $post->save();
+            if (!!$post->gallery_id && !!$posterImageId) {
+                $posterImageId = $post->gallery->images
+                    ->where('id', $posterImageId)
+                    ->first()
+                    ?->id;
 
                 if (!!$posterImageId) {
                     $post->setMeta('poster_image', $posterImageId);
                 }
             }
 
+            $post->load(['user', 'gallery']);
 
-            $post->load('gallery');
-
-            return response()->json($post->refresh());
+            return response()->json($post);
         }
 
         return response()->json(['message' => 'Could not create post.'], 500);
@@ -125,63 +131,82 @@ class PostController extends Controller
     public function update(UpdatePostRequest $request, Post $post)
     {
         $postData = Utils::extractNonNullOrEmpty($request->only(['title', 'content']));
+        $galleryId = intval($request->input('gallery_id'));
+        $removePosterImage = !!$request->input('remove_poster_image');
 
         if (!count($postData) || $post->update($postData)) {
             $posterImageId = null;
-            $gallery = null;
 
-            if (!!intval($request->input('gallery_id')) && $request->input('gallery_id') != $post->gallery_id) {
+            if (!!$galleryId && $galleryId != $post->gallery_id) {
                 $copyGalleryResult = null;
-                $gallery = $this->copyGalleryFromRequest($copyGalleryResult);
-                $selectedPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
+                $gallery = $this->copyGalleryFromRequest($post->title, $copyGalleryResult);
 
-                if (!!$selectedPosterImage) {
-                    $posterImageId = $selectedPosterImage->id;
-                }
-            } else if (is_array($request->input('image_data')) || is_array($request->input('remove_images'))) {
-                $gallery = $post->gallery ?:  Gallery::create([
-                    'name' => $post->title,
-                    'user_id' => Auth::id()
-                ]);
-
-                $result = $this->handleImageUploads($gallery);
-
-                if (!!count(data_get($result, 'meta.index_mapping'))) {
-                    if ($request->input('poster_image') || is_numeric($request->input('poster_image'))) {
-                        $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.index_mapping'));
-                    }
-                }
-            }
-
-            if (!!$gallery || !!$post->gallery_id && !$posterImageId && intval($request->input('poster_image'))) {
                 if (!!$gallery) {
                     $post->gallery_id = $gallery->id;
-                    $post->save();
-                } else if (!!$post->gallery_id && !$posterImageId && intval($request->input('poster_image'))) {
-                    $image = $post->gallery->images
-                        ->where('id', $request->input('poster_image'))
-                        ->first();
 
-                    if (!!$image) {
-                        $posterImageId = $image->id;
+                    if ($post->save()) {
+                        if (!$removePosterImage) {
+                            $copiedGalleryPosterImage = data_get($copyGalleryResult, 'images.' . $request->input('poster_image'));
+
+                            if (!!$copiedGalleryPosterImage) {
+                                $posterImageId = $copiedGalleryPosterImage->id;
+                            }
+                        }
+                    }
+                }
+            } else if (is_array($request->input('image_data')) || is_array($request->input('remove_images'))) {
+                $hasValidGallery = !!$post->gallery_id;
+
+                if (!$hasValidGallery) {
+                    $gallery = Gallery::create([
+                        'name' => $post->title,
+                        'user_id' => Auth::id()
+                    ]);
+
+                    if (!!$gallery && $post->update(['gallery_id' => $gallery->id])) {
+                        $hasValidGallery = true;
                     }
                 }
 
-                if (!!$posterImageId) {
-                    $post->setMeta('poster_image', $posterImageId);
+                if ($hasValidGallery) {
+                    $result = $this->handleImageUploads($post->gallery);
+
+                    if (!!count(data_get($result, 'meta.index_mapping'))) {
+                        if (!$removePosterImage && $request->input('poster_image') || is_numeric($request->input('poster_image'))) {
+                            $posterImageId = array_search($request->input('poster_image'), data_get($result, 'meta.index_mapping'));
+                        }
+                    }
                 }
+            } else if (!!$post->gallery_id) {
+                $posterImageId = intval($request->input('poster_image'));
             }
 
-            $post->load('gallery');
+            if (!!$post->gallery_id) {
+                $posterImageId = !$posterImageId
+                    ? null
+                    : $post->gallery->images
+                        ->where('id', $posterImageId)
+                        ->first()
+                        ?->id;
+            } else {
+                $posterImageId = null;
+            }
 
-            return response()->json($post->refresh());
+
+            if (!!$posterImageId && !$removePosterImage) {
+                $post->setMeta('poster_image', $posterImageId);
+            } else if ($removePosterImage) {
+                $post->removeMeta('poster_image');
+            }
         }
+
+        return response()->json($post);
     }
 
     /**
      * Remove the specified resource from storage.
      *
-     * @param  int  $id
+     * @param  Post  $post
      * @return \Illuminate\Http\JsonResponse
      */
     public function destroy(Post $post)
@@ -192,7 +217,7 @@ class PostController extends Controller
         return response()->json(['success' => $success], $status);
     }
 
-    public function copyGalleryFromRequest(array &$galleryCopyResult = null)
+    public function copyGalleryFromRequest($newName = '', ?array &$galleryCopyResult = null)
     {
         if (request()->has('gallery_id')) {
             $selectedGallery = Gallery::where('id', request()->input('gallery_id'))
@@ -205,6 +230,7 @@ class PostController extends Controller
                 ]);
             }
 
+            $newName = trim($newName) ?: $selectedGallery->name;
             $imageExclude = is_array(request()->input('remove_images')) ? request()->input('remove_images') : [];
             $imageCaptions = [];
 
@@ -224,7 +250,7 @@ class PostController extends Controller
             }
 
             $gallery = $selectedGallery->copy([
-                'name' => request()->input('title'),
+                'name' => $newName,
                 'description' => null,
                 'image_exclude' => $imageExclude,
                 'image_captions' => $imageCaptions,

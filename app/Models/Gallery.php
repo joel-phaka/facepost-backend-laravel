@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 
 class Gallery extends Model
 {
-    use VerifiesAuthUser, HasFactory, RelationOfActiveUsers;
+    use VerifiesAuthUser, HasFactory, RelationOfActiveUsers, VerifiesAuthUser;
 
     protected $table = 'gallery';
     protected $fillable = [
@@ -24,11 +24,16 @@ class Gallery extends Model
         'user_id'
     ];
 
-    protected $with = ['images', 'user'];
+    protected $with = [];
 
-    protected $withCount = ['images'];
+    protected $withCount = [
+        'images'
+    ];
 
-    protected $appends = ['thumbnail_url'];
+    protected $appends = [
+        'thumbnail_url',
+        'belongs_to_auth_user'
+    ];
 
     public function user()
     {

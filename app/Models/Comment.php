@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Traits\HasLikes;
 use App\Traits\RelationOfActiveUsers;
+use App\Traits\VerifiesAuthUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Comment extends Model
 {
-    use HasLikes, HasFactory, RelationOfActiveUsers;
+    use HasLikes, HasFactory, RelationOfActiveUsers, VerifiesAuthUser;
 
     /**
      * The attributes that are mass assignable.
@@ -23,14 +24,19 @@ class Comment extends Model
         'content'
     ];
 
-    protected $with = ['user'];
+    protected $with = [
+        'user'
+    ];
 
-    protected $withCount = ['likes'];
+    protected $withCount = [
+        'likes'
+    ];
 
     protected $appends = [
         'is_reply',
         'is_liked',
         'replies_count',
+        'belongs_to_auth_user'
     ];
 
     public function post()

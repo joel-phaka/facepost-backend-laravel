@@ -6,12 +6,18 @@ use Illuminate\Support\Facades\Auth;
 
 trait VerifiesAuthUser
 {
-    public function verifyAuthUser($throwException = false, $checkExists = true)
+    public function verifyAuthUser($throwException = false, $checkExists = true): bool
     {
         $exists = !$checkExists || $this->exists();
+        $isAuthUser = $exists && Auth::check() && $this->user_id == Auth::id();
 
-        abort_if($throwException && $exists && $this->user_id != Auth::id(), 403, 'Forbidden');
+        abort_if($throwException && !$isAuthUser, 403, 'Forbidden');
 
-        return $exists && $this->user_id == Auth::id();
+        return $isAuthUser;
+    }
+
+    public function getBelongsToAuthUserAttribute(): bool
+    {
+        return $this->verifyAuthUser(false, false);
     }
 }

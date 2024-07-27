@@ -81,8 +81,7 @@ trait HandlesBulkImages
                     if (!!$gallery && !!$gallery->id) {
                         $image->gallery_id = $gallery->id;
                     }
-                }
-                else {
+                } else {
                     $file = null;
                 }
             }
@@ -118,11 +117,15 @@ trait HandlesBulkImages
             }
         }
 
+        $invalidImageIds = [];
+
         foreach ($newFiles as $fileInfo) {
             $file = $fileInfo['file'];
             $image = $fileInfo['image'];
             $name = $fileInfo['name'];
             $thumb_name = $fileInfo['thumb_name'];
+
+            $isValid = false;
 
             if ($file->storeAs('/', $name, 'images')) {
                 $thumb_width = config('const.images.thumb_width') ?: 320;
@@ -130,21 +133,19 @@ trait HandlesBulkImages
                 $interventionImage = ImageManager::read(Storage::disk('images')->get($name));
                 $interventionImage->scale($thumb_width, $thumb_height);
                 $interventionImage->save(config('filesystems.disks.images.root') . '/' . $thumb_name);
+
+                $isValid = Storage::disk('images')->exists($thumb_name);
             }
-            else {
-                if (!empty($validImages[$image->id])) {
-                    unset($validImages[$image->id]);
-                }
 
-                foreach ($metaFromImages as $metaName => $metaFromImage) {
-                    if (!empty($metaFromImage[$image->id])) {
-                        unset($metaFromImages[$metaName][$image->id]);
-                    }
-                }
+            if (!$isValid) {
+                data_forget($validImages, $image->id);
+                data_forget($metaFromImages, '*.' . $image->id);
 
-                $image->delete();
+                $invalidImageIds[] = $image->id;
             }
         }
+
+        $removeImages = array_merge($removeImages, $invalidImageIds);
 
         $this->deleteImages($gallery, $removeImages);
 
