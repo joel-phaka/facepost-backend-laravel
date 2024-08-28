@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\CanBeLiked;
 use App\Traits\HasLikes;
 use App\Traits\RelationOfActiveUsers;
 use App\Traits\VerifiesAuthUser;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Comment extends Model
 {
-    use HasLikes, HasFactory, RelationOfActiveUsers, VerifiesAuthUser;
+    use HasLikes, HasFactory, RelationOfActiveUsers, VerifiesAuthUser, CanBeLiked;
 
     /**
      * The attributes that are mass assignable.

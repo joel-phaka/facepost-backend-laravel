@@ -100,6 +100,7 @@ class PostController extends Controller
                 }
             }
 
+            $post->refresh();
             $post->load(['user', 'gallery']);
 
             return response()->json($post);
@@ -116,7 +117,7 @@ class PostController extends Controller
      */
     public function show(Post $post)
     {
-        $post->load('gallery');
+        $post->load(['gallery', 'gallery.images']);
 
         return response()->json($post);
     }
@@ -200,7 +201,7 @@ class PostController extends Controller
             }
         }
 
-        return response()->json($post);
+        return response()->json($post->refresh());
     }
 
     /**

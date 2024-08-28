@@ -42,7 +42,7 @@ return [
     */
 
     'personal_access_client' => [
-        'type' => env('PASSPORT_DEFAULT_GRANT_TYPE'),
+        'type' => 'password',
         'id' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_ID'),
         'secret' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET'),
     ],

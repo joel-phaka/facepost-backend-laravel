@@ -20,16 +20,14 @@ class LikeController extends Controller
 
     public function like($typeName, $typeId)
     {
-        if (array_key_exists($typeName, self::LIKEABLE_MAPPING)) {
-            $typeClass = Like::getLikeableType($typeName);
+        $typeClass = Like::getLikeableType($typeName);
+
+        if (!!$typeClass) {
             $typeObject = call_user_func_array([$typeClass, 'findOrFail'], [$typeId]);
 
-            if ($typeObject->user_id != Auth::id()) {
-                return response()->json(['message' => 'Forbidden'], 403);
-            }
             $success = false;
 
-            if (!Auth::user()->hasLiked($typeObject)) {
+            if (!$typeObject->isLiked) {
                 $like = new Like([
                     'likeable_type' => $typeClass,
                     'likeable_id' => $typeId,
@@ -49,8 +47,9 @@ class LikeController extends Controller
 
     public function unlike($typeName, $typeId)
     {
-        if (array_key_exists($typeName, self::LIKEABLE_MAPPING)) {
-            $typeClass = Like::getLikeableType($typeName);
+        $typeClass = Like::getLikeableType($typeName);
+
+        if (!!$typeClass) {
             $typeObject = call_user_func_array([$typeClass, 'findOrFail'], [$typeId]);
 
             if ($typeObject->user_id != Auth::id()) {
@@ -58,7 +57,7 @@ class LikeController extends Controller
             }
             $success = false;
 
-            if (Auth::user()->hasLiked($typeObject)) {
+            if ($typeObject->isLiked) {
                 $success = (bool)Auth::user()->likes()
                     ->where('likeable_type', $typeClass)
                     ->where('likeable_id', $typeId)

@@ -30,24 +30,21 @@ Route::group([
 
 Route::middleware(['auth:api', 'auth.active'])->group(function () {
     Route::apiResource('posts', 'App\Http\Controllers\Api\PostController')->except(['update', 'destroy', 'show']);
-    Route::get('posts/{post}', 'App\Http\Controllers\Api\PostController@show')
-        ->middleware(['verify_resource:post']);
+    Route::get('posts/{post}', 'App\Http\Controllers\Api\PostController@show');
     Route::post('posts/{post}', 'App\Http\Controllers\Api\PostController@update')
         ->middleware(['verify_resource:post']);
     Route::delete('posts/{post}', 'App\Http\Controllers\Api\PostController@destroy')
         ->middleware('verify_resource:post');
 
     Route::apiResource('gallery', 'App\Http\Controllers\Api\GalleryController')->except(['update', 'destroy', 'show']);
-    Route::get('gallery/{gallery}', 'App\Http\Controllers\Api\GalleryController@show')
-        ->middleware('verify_resource:gallery');
+    Route::get('gallery/{gallery}', 'App\Http\Controllers\Api\GalleryController@show');
     Route::post('gallery/{gallery}', 'App\Http\Controllers\Api\GalleryController@update')
         ->middleware('verify_resource:gallery');
-    Route::delete('gallery/{gallery}', 'App\Http\Controllers\Api\GalleryController@update')
+    Route::delete('gallery/{gallery}', 'App\Http\Controllers\Api\GalleryController@destroy')
         ->middleware('verify_resource:gallery');
 
     Route::apiResource('comments', 'App\Http\Controllers\Api\CommentController')->except(['update', 'destroy', 'show']);
-    Route::get('comments/{comment}', 'App\Http\Controllers\Api\CommentController@show')
-        ->middleware('verify_resource:comment');
+    Route::get('comments/{comment}', 'App\Http\Controllers\Api\CommentController@show');
     Route::post('comments/{comment}', 'App\Http\Controllers\Api\CommentController@update')
         ->middleware('verify_resource:comment');
     Route::delete('comments/{comment}', 'App\Http\Controllers\Api\CommentController@destroy')

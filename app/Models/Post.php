@@ -5,13 +5,14 @@ namespace App\Models;
 use App\Traits\HasLikes;
 use App\Traits\RelationOfActiveUsers;
 use App\Traits\VerifiesAuthUser;
+use App\Traits\CanBeLiked;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Plank\Metable\Metable;
 
 class Post extends Model
 {
-    use HasLikes, Metable, VerifiesAuthUser, HasFactory, RelationOfActiveUsers, VerifiesAuthUser;
+    use HasLikes, Metable, VerifiesAuthUser, HasFactory, RelationOfActiveUsers, VerifiesAuthUser, CanBeLiked;
 
     protected $fillable = [
         'title',
@@ -39,7 +40,8 @@ class Post extends Model
         'poster_image',
         'poster_image_thumb',
         'gallery_images_count',
-        'belongs_to_auth_user'
+        'belongs_to_auth_user',
+        'is_liked',
     ];
 
     public function user()
@@ -69,7 +71,12 @@ class Post extends Model
     public function getPosterImageAttribute()
     {
         if (!!($posterImage = $this->getPosterImage())) {
-            return $posterImage->url;
+            return [
+                'id' => $posterImage->id,
+                'url' => $posterImage->url,
+                'thumb_url' => $posterImage->thumb_url,
+                'caption' => $posterImage->caption,
+            ];
         }
         return null;
     }

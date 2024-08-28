@@ -24,6 +24,10 @@ class Gallery extends Model
         'user_id'
     ];
 
+    protected $casts = [
+        'is_active' => 'bool',
+    ];
+
     protected $with = [];
 
     protected $withCount = [

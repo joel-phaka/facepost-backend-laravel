@@ -31,6 +31,7 @@ class AuthController extends Controller
 
         if ($credentials['grant_type'] == 'password') {
             $credentials['username'] = $credentials['username'] ?? $credentials['email'] ?? null;
+            data_forget($credentials, 'email');
 
             if (empty($credentials['username']) || empty($credentials['password'])) {
                 $usernameField = !empty($credentials['username']) ? 'username' : 'email';

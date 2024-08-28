@@ -29,6 +29,11 @@ class GalleryController extends Controller
         return $gallery->refresh();
     }
 
+    public function show(Gallery $gallery)
+    {
+        return $gallery->load('images');
+    }
+
     public function update(Gallery $gallery, UpdateGalleryRequest $request)
     {
         $gallery->update($request->only(['name']));
