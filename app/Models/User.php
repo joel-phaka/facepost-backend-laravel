@@ -100,12 +100,14 @@ class User extends Authenticatable
     public function getProfilePictureAttribute()
     {
         $url = null;
+
         if (!!($profilePicture = Image::find($this->getMeta('profile_picture')))) {
-            return $profilePicture->url;
+            $url = $profilePicture->url;
         } else if ($this->providers()->count()) {
             $provider = $this->providers()->first();
             $url = !!$provider ? $provider->avatar : null;
         }
+
         return $url;
     }
 

@@ -38,7 +38,6 @@ class Post extends Model
 
     protected $appends = [
         'poster_image',
-        'poster_image_thumb',
         'gallery_images_count',
         'belongs_to_auth_user',
         'is_liked',
@@ -77,14 +76,6 @@ class Post extends Model
                 'thumb_url' => $posterImage->thumb_url,
                 'caption' => $posterImage->caption,
             ];
-        }
-        return null;
-    }
-
-    public function getPosterImageThumbAttribute()
-    {
-        if (!!($posterImage = $this->getPosterImage())) {
-            return $posterImage->thumb_url;
         }
         return null;
     }
