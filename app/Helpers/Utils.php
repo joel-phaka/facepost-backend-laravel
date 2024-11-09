@@ -4,22 +4,21 @@
 namespace App\Helpers;
 
 
-use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class Utils
 {
     public static function formatPagination(LengthAwarePaginator $paginator): array
     {
-        $meta = $paginator->toArray();
-        $data = $meta['data'] ?? [];
+        $paginatorArr = $paginator->toArray();
+        $data = $paginatorArr['data'];
 
-        if (isset($meta['data'])) unset($meta['data']);
+        data_forget($paginatorArr, 'data');
 
-        $meta['is_last_page'] = $meta['current_page'] == $meta['last_page'];
-        $meta['has_more_pages'] = $meta['current_page'] < $meta['last_page'];
-        $meta['has_data'] = count($data) > 0;
-        $meta['is_empty'] = count($data) == 0;
+        $meta = array_merge($paginatorArr, [
+            'is_last_page' => $paginatorArr['current_page'],
+            'has_more_pages' => $paginator->hasMorePages()
+        ]);
 
         return [
             'meta' => $meta,
@@ -29,14 +28,15 @@ class Utils
 
     public static function paginate($collection, ?int $perPage = null, array $appends = []): array
     {
-        $itemsPerPage = intval($perPage) ?: config('const.pagination.items_per_page');
+        $itemsPerPage = (intval($perPage) ?: intval(config('const.pagination.items_per_page'))) ?: 10;
+        $maxItemsPerPages = intval(config('const.pagination.max_items_per_page')) ?: 20;
 
-        if (request()->has('per_page') && is_numeric(request()->input('per_page'))) {
-            $itemsPerPage = intval(request()->input('per_page'));
+        if (!!request()->integer('per_page')) {
+            $itemsPerPage = request()->integer('per_page');
         }
 
-        if ($itemsPerPage < 1 || $itemsPerPage > config('const.pagination.max_items_per_page')) {
-            $itemsPerPage = 10;
+        if ($itemsPerPage > $maxItemsPerPages) {
+            $itemsPerPage = $maxItemsPerPages;
         }
 
         $appends['per_page'] = $itemsPerPage;

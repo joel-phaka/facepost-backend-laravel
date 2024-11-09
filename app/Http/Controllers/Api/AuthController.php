@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AccessTokenException;
 use App\Helpers\AuthUtils;
-use App\Helpers\Utils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Http;
 use InvalidArgumentException;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
+use PeterPetrus\Auth\PassportToken;
 use Stevebauman\Location\Facades\Location;
 use Throwable;
 
@@ -68,29 +69,40 @@ class AuthController extends Controller
 
         if ($response->failed()) {
             if ($response->status() == 400) {
-                throw new AuthenticationException(!!trim($response->body()) ? $response->body() : "Unauthorized");
+                throw new AccessTokenException($response->json());
             } else {
                 throw $response->toException();
             }
         }
 
-        return $response->json();
+        $tokenData = $response->json();
+
+        $accessTokenDetails = new PassportToken($tokenData['access_token']);
+        $tokenData['expires_at'] = Carbon::parse($accessTokenDetails->expires_at)->timestamp;
+
+        return [
+            'token_type' => $tokenData['token_type'],
+            'expires_in' => $tokenData['expires_in'],
+            'expires_at' => $tokenData['expires_at'],
+            'access_token' => $tokenData['access_token'],
+            'refresh_token' => $tokenData['refresh_token'],
+        ];
     }
     public function login(LoginRequest $request)
     {
-        $userFromEmail = DB::table('users')
-            ->select(['is_active'])
-            ->where('email', $request->input('email'))
-            ->first();
-
-        if (!!$userFromEmail && !$userFromEmail->is_active) {
-            return response()->json([
-                'message' => 'The user account has been deactivated.',
-                'error_code' => 'auth_account_deactivated',
-            ], 401);
-        }
-
         try {
+            $userFromEmail = DB::table('users')
+                ->select(['is_active'])
+                ->where('email', $request->input('email'))
+                ->first();
+
+            if (!!$userFromEmail && !$userFromEmail->is_active) {
+                return response()->json([
+                    'message' => 'The user account has been deactivated.',
+                    'error_code' => 'auth_account_deactivated',
+                ], 401);
+            }
+
             $credentials = array_merge(
                 ['grant_type' => 'password'],
                 $request->only('email', 'password')
@@ -102,12 +114,9 @@ class AuthController extends Controller
             abort_if(!$user, 401);
 
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (AuthenticationException $ex) {
-            return response()->json([
-                'message' => "Unauthorized",
-                'error_code' => "auth_invalid_credentials",
-            ], 401);
-        } catch (Throwable $ex) {
+        } catch (AccessTokenException $ex) {
+            return response()->json($ex, 401);
+        } catch (Throwable) {
             return response()->json([
                 'message' => "Internal Server Error",
                 'error_code' => "auth_internal_error",
@@ -126,15 +135,14 @@ class AuthController extends Controller
             $tokens = $this->getTokens($credentials);
             $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
-            abort_if(!$user, 401);
+            if (!$user) {
+                throw new AccessTokenException(null, 'auth_invalid_user');
+            }
 
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (AuthenticationException $ex) {
-            return response()->json([
-                'message' => "Unauthorized",
-                'error_code' => "auth_invalid_refresh_token",
-            ], 401);
-        } catch (Throwable $ex) {
+        } catch (AccessTokenException $ex) {
+            return response()->json($ex, 401);
+        } catch (Throwable) {
             return response()->json([
                 'message' => "Internal Server Error",
                 'error_code' => "auth_internal_error",
@@ -144,18 +152,26 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
+        $username = AuthUtils::generateUsername($request->input('email'));
+
+        if (!$username){
+            return response()->json([
+                'message' => 'Registration failed'
+            ]);
+        }
+
         $user = User::create([
             'first_name' => $request->input('first_name'),
             'last_name' => $request->input('last_name'),
-            'username' => AuthUtils::generateUsername($request->input('email')),
+            'username' => $username,
             'email' => $request->input('email'),
-            'password' => bcrypt($request->input('password')),
+            'password' => $request->input('password'),
         ]);
 
         return response()->json($user);
     }
 
-    public function user()
+    public function getUser()
     {
         return auth()->user();
     }
@@ -189,13 +205,21 @@ class AuthController extends Controller
             $externalUser = Socialite::driver($provider)->stateless()->user();
 
             $nameArr = preg_split('/\s+/', $externalUser->getName());
-            $first_name = $nameArr[0];
-            $last_name = count($nameArr) > 1 ? implode(' ', array_slice($nameArr, 1)) : null;
+            $firstName = $nameArr[0];
+            $lastName = count($nameArr) > 1 ? implode(' ', array_slice($nameArr, 1)) : null;
+            $email = $externalUser->getEmail();
+            $username = AuthUtils::generateUsername($email);
 
-            $createdUser = User::firstOrCreate(['email' => $externalUser->getEmail()], [
-                'first_name' => $first_name,
-                'last_name' => $last_name,
-                'username' => AuthUtils::generateUsername($externalUser->getEmail()),
+            if (!$username){
+                response()->json([
+                    'message' => 'Registration failed'
+                ]);
+            }
+
+            $createdUser = User::firstOrCreate(['email' => $email], [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'username' => $username,
             ]);
 
             $createdUser->providers()->updateOrCreate([

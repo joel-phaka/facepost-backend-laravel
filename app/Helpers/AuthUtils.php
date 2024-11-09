@@ -8,71 +8,81 @@ use PeterPetrus\Auth\PassportToken;
 
 class AuthUtils
 {
-    public static function generateUsername($email)
+    public static function generateUsername(?string $email): bool|string
     {
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            abort(500, "Internal Server Error: Invalid Email");
-        }
+        if  (!filter_var($email)) return false;
 
         $usernameOfEmail = explode("@", $email)[0];
 
-        preg_match('/^(.*[^0-9])([0-9]*)$/', $usernameOfEmail, $matches1);
-
-        if (empty($matches1[1])) {
+        if (!User::where("username", $usernameOfEmail)->exists()) {
             return $usernameOfEmail;
         }
 
-        $namePart = $matches1[1];
+        $namePart = preg_match("/(.+[^0-9]+)[0-9]+$/", $usernameOfEmail, $matches)
+            ? ($matches[1] ?? $usernameOfEmail)
+            : $usernameOfEmail;
 
-        $usernames = User::where('username', 'REGEXP', $namePart . '[0-9]*')
-            ->latest()
+        $numericalSuffixes = User::where("username", 'REGEXP', $namePart . '[0-9]*')
+            ->whereNot('username', $namePart)
+            ->orderBy('username','desc')
             ->pluck('username')
+            ->map(fn($name) => str_replace( $namePart, '',  $name))
             ->toArray();
 
-        rsort($usernames);
+        $suffix = $numericalSuffixes[0] ?? '';
 
-        if (!count($usernames)) {
-            $generatedUsername = $usernameOfEmail;
-        } else {
-            $perfMatch = $usernames[0];
+        if (!$suffix) return $namePart . '1';
 
-            preg_match('/^(.*[^0-9])([0-9]*)$/', $perfMatch, $matches2);
+        do {
+            preg_match('/^([0]*)([1-9]+\d*)?$/', $suffix, $matches);
 
-            if (!$matches2[2]) {
-                $generatedUsername = $namePart . '1';
-            } else {
-                $numberPart = $matches2[2];
+            $leadingZeros = $matches[1] ?? '';
+            $trailingNumbers = $matches[2] ?? '';
 
-                preg_match('/^(0*)([1-9][0-9]*)/', $numberPart, $matches3);
+            if ($leadingZeros !== '' && $trailingNumbers !== '') {
+                $trailingNumbers = strval(intval($trailingNumbers) + 1);
 
-                $zeros = $matches3[1];
-                $numbers = intval($matches3[2]) + 1;
-                $numberPart = $zeros . $numbers;
+                if (strlen($trailingNumbers) >= strlen($suffix)) {
+                    $leadingZeros = '';
+                } else {
+                    $lengthDiff = strlen($suffix) - strlen($trailingNumbers);
+                    $leadingZeros = substr_replace($leadingZeros, '', $lengthDiff);
+                }
 
-                $generatedUsername = $namePart . $numberPart;
+            } else if ($leadingZeros !== '' && $trailingNumbers === '') {
+                if (strlen($leadingZeros) === 1) {
+                    $leadingZeros = strval(1);
+                } else {
+                    $leadingZeros = strval(value: substr($leadingZeros, 0, strlen($leadingZeros) - 1) . '1');
+                }
+            } else if ($leadingZeros === '' && $trailingNumbers !== '') {
+                $trailingNumbers = strval(intval($trailingNumbers) + 1);
             }
 
-        }
+            $suffix = $leadingZeros . $trailingNumbers;
+
+        } while($suffix !== '' && in_array($suffix, $numericalSuffixes, true));
+
+        $generatedUsername = $namePart . $suffix;
 
         return $generatedUsername;
     }
 
-    public static function getAccessTokenId($access_token)
+    public static function getAccessTokenId(?string $accessToken): string|null
     {
-        if (!$access_token) return null;
+        if (!$accessToken) return null;
 
-        $token_parts = explode('.', $access_token);
-        $token_header = $token_parts[1];
-        $token_header_json = base64_decode($token_header);
-        $token_header_array = json_decode($token_header_json, true);
-        $token_id = $token_header_array['jti'];
+        $tokenParts = explode('.', $accessToken);
+        $tokenHeader = base64_decode($tokenParts[1] ?? '');
+        $tokenHeaderParts = json_decode($tokenHeader, true);
+        $tokenId = $tokenHeaderParts['jti'] ?? null;
 
-        return  $token_id;
+        return  $tokenId;
     }
 
-    public static function findUserByAccessToken($access_token)
+    public static function findUserByAccessToken(?string $accessToken): User|null
     {
-        $tokenDetails = new PassportToken($access_token);
+        $tokenDetails = new PassportToken($accessToken);
 
         if ($tokenDetails->valid && $tokenDetails->token_id) {
             return !!($token = Token::find($tokenDetails->token_id)) ? $token->user : null;

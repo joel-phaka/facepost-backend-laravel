@@ -23,7 +23,7 @@ Route::group([
     Route::post('register', 'App\Http\Controllers\Api\AuthController@register');
 
     Route::middleware(['auth:api', 'auth.active'])->group(function () {
-        Route::get('user', 'App\Http\Controllers\Api\AuthController@user');
+        Route::get('user', 'App\Http\Controllers\Api\AuthController@getUser');
         Route::post('logout', 'App\Http\Controllers\Api\AuthController@logout');
     });
 });
@@ -31,6 +31,7 @@ Route::group([
 Route::middleware(['auth:api', 'auth.active'])->group(function () {
     Route::apiResource('posts', 'App\Http\Controllers\Api\PostController')->except(['update', 'destroy', 'show']);
     Route::get('posts/{post}', 'App\Http\Controllers\Api\PostController@show');
+    Route::get('posts/{post}/images', 'App\Http\Controllers\Api\PostController@getPostImages');
     Route::post('posts/{post}', 'App\Http\Controllers\Api\PostController@update')
         ->middleware(['verify_resource:post']);
     Route::delete('posts/{post}', 'App\Http\Controllers\Api\PostController@destroy')
@@ -75,6 +76,7 @@ Route::middleware(['auth:api', 'auth.active'])->group(function () {
         Route::get('/{user}/comments', 'App\Http\Controllers\Api\ProfileController@getUserComments');
         Route::get('/{user}/likes/{type_name}', 'App\Http\Controllers\Api\ProfileController@getUserLikes')
             ->whereIn('type_name', array_keys(Like::getLikeableTypes()));
+        Route::get('/{user}/picture', 'App\Http\Controllers\Api\ProfileController@getPicture');
     });
 
     //Route::post('account/profile', 'App\Http\Controllers\Api\AccountController@updateProfile');
