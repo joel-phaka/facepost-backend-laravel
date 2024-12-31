@@ -23,6 +23,7 @@ Route::group([
     Route::post('register', 'App\Http\Controllers\Api\AuthController@register');
 
     Route::middleware(['auth:api', 'auth.active'])->group(function () {
+        Route::post('/', 'App\Http\Controllers\Api\AuthController@loginWithAccessToken');
         Route::get('user', 'App\Http\Controllers\Api\AuthController@getUser');
         Route::post('logout', 'App\Http\Controllers\Api\AuthController@logout');
     });

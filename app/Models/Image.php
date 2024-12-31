@@ -9,6 +9,7 @@ use App\Traits\VerifiesAuthUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Plank\Metable\Metable;
 
 class Image extends Model
@@ -58,5 +59,12 @@ class Image extends Model
     public function getThumbUrlAttribute()
     {
         return $this->thumb_name && config('filesystems.files_link.url') ? config('filesystems.files_link.url') . '/images/' . $this->thumb_name : null;
+    }
+
+    public static function getIfValid($id)
+    {
+        if (!$id) return null;
+
+        return ($image = Image::find($id)) && Storage::disk('images')->exists($image->name) ? $image : null;
     }
 }

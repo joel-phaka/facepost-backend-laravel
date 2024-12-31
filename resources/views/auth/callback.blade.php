@@ -8,15 +8,11 @@
     <title>Document</title>
 </head>
 <body>
-    <script>
-        @if ($platform == 'spa' && !empty($spa_app_url))
-            @if(!$errors->has('auth'))
-                window.opener.postMessage(JSON.stringify({access_token: '{{ $access_token }}', error: null}), '{{$spa_app_url}}');
-            @else
-                window.opener.postMessage(JSON.stringify({error: '{{ $errors->first('auth') }}'}), '{{$spa_app_url}}');
-            @endif
-        @endif
-        window.close();
+
+    <script type="text/javascript">
+        //errors->has('auth')
+        const url = '{{$return_url}}';
+        window.location.href=url
     </script>
 </body>
 </html>

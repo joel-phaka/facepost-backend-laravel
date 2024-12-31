@@ -4,6 +4,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Passport Guard
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify which authentication guard Passport will use when
+    | authenticating users. This value should correspond with one of your
+    | guards that is already present in your "auth" configuration file.
+    |
+    */
+
+    'guard' => 'web',
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Keys
     |--------------------------------------------------------------------------
     |
@@ -16,6 +29,19 @@ return [
     'private_key' => env('PASSPORT_PRIVATE_KEY'),
 
     'public_key' => env('PASSPORT_PUBLIC_KEY'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Passport Database Connection
+    |--------------------------------------------------------------------------
+    |
+    | By default, Passport's models will utilize your application's default
+    | database connection. If you wish to use a different connection you
+    | may specify the configured name of the database connection here.
+    |
+    */
+
+    'connection' => env('PASSPORT_CONNECTION'),
 
     /*
     |--------------------------------------------------------------------------
@@ -42,26 +68,16 @@ return [
     */
 
     'personal_access_client' => [
-        'type' => 'password',
         'id' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_ID'),
         'secret' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET'),
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Passport Storage Driver
-    |--------------------------------------------------------------------------
-    |
-    | This configuration value allows you to customize the storage options
-    | for Passport, such as the database connection that should be used
-    | by Passport's internal database models which store tokens, etc.
-    |
-    */
-
-    'storage' => [
-        'database' => [
-            'connection' => env('DB_CONNECTION', 'mysql'),
-        ],
+    'password_client' => [
+        'id' => env('PASSPORT_PASSWORD_CLIENT_ID'),
+        'secret' => env('PASSPORT_PASSWORD_CLIENT_SECRET'),
     ],
 
+    'oauth_token_url' => env('PASSPORT_OAUTH_TOKEN_URL'),
+
+    'oauth_token_refresh_url' => env('PASSPORT_OAUTH_TOKEN_REFRESH_URL'),
 ];

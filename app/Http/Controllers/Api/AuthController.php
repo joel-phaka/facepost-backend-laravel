@@ -10,8 +10,9 @@ use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\LoginLog;
 use App\Models\User;
-use Illuminate\Auth\AuthenticationException;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -46,15 +47,15 @@ class AuthController extends Controller
         }
 
         $grantUrls = [
-            'password' => config('services.passport.oauth_token_url'),
-            'refresh_token' => config('services.passport.oauth_token_refresh_url')
+            'password' => config('passport.oauth_token_url'),
+            'refresh_token' => config('passport.oauth_token_refresh_url')
         ];
 
         $url = $grantUrls[$credentials['grant_type']];
 
         $credentials = array_merge($credentials, [
-            'client_id' => config('services.passport.client_id'),
-            'client_secret' => config('services.passport.client_secret'),
+            'client_id' => config('passport.password_client.id'),
+            'client_secret' => config('passport.password_client.secret'),
         ]);
 
         $options = ['verify' => !config('app.debug')];
@@ -88,12 +89,13 @@ class AuthController extends Controller
             'refresh_token' => $tokenData['refresh_token'],
         ];
     }
-    public function login(LoginRequest $request)
+
+    public function loginWithEmailAndPassword(array $credentials)
     {
         try {
             $userFromEmail = DB::table('users')
                 ->select(['is_active'])
-                ->where('email', $request->input('email'))
+                ->where('email', $credentials['email'])
                 ->first();
 
             if (!!$userFromEmail && !$userFromEmail->is_active) {
@@ -103,25 +105,37 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            $credentials = array_merge(
-                ['grant_type' => 'password'],
-                $request->only('email', 'password')
-            );
+            $credentials = [
+                'grant_type' => 'password',
+                ...Arr::only($credentials, ['email', 'password'])
+            ];
 
             $tokens = $this->getTokens($credentials);
             $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
             abort_if(!$user, 401);
 
+            auth()->login($user);
+
             return response()->json(array_merge($tokens, compact('user')));
         } catch (AccessTokenException $ex) {
             return response()->json($ex, 401);
-        } catch (Throwable) {
+        } catch (Throwable $th) {
             return response()->json([
                 'message' => "Internal Server Error",
                 'error_code' => "auth_internal_error",
             ], 500);
         }
+    }
+
+    public function login(LoginRequest $request)
+    {
+        return $this->loginWithEmailAndPassword($request->only('email', 'password'));
+    }
+
+    public function loginWithAccessToken()
+    {
+        return AuthUtils::issueAccessTokenData(request()->bearerToken() ?? '');
     }
 
     public function refresh(RefreshTokenRequest $request)
@@ -142,9 +156,9 @@ class AuthController extends Controller
             return response()->json(array_merge($tokens, compact('user')));
         } catch (AccessTokenException $ex) {
             return response()->json($ex, 401);
-        } catch (Throwable) {
+        } catch (Throwable $ex) {
             return response()->json([
-                'message' => "Internal Server Error",
+                'message' => $ex->getMessage(),//"Internal Server Error",
                 'error_code' => "auth_internal_error",
             ], 500);
         }
@@ -152,9 +166,9 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        $username = AuthUtils::generateUsername($request->input('email'));
+        $username = AuthUtils::generateUsernameFromEmail($request->input('email'));
 
-        if (!$username){
+        if (!$username) {
             return response()->json([
                 'message' => 'Registration failed'
             ]);
@@ -185,32 +199,39 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully']);
     }
 
-    public function redirectToProvider($provider)
+    public function redirectToProvider(Request $request, $provider)
     {
-        session([
-            'platform' => request()->input('platform'),
-            'spa_app_url' => request()->input('spa_app_url')
-        ]);
+        session(['return_to' => $request->query('return_to')]);
 
-        return Socialite::driver($provider)->stateless()->redirect();
+        return Socialite::driver($provider)
+            ->stateless()
+            ->redirect();
     }
 
-    public function handleProviderCallback($provider)
+    public function handleProviderCallback(Request $request, $provider)
     {
-        $platform = session()->get('platform');
-        $spa_app_url = session()->get('spa_app_url');
-        session()->forget(['platform', 'spa_app_url']);
+        parse_str(parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $query);
+        $request->mergeIfMissing($query);
+
+        $returnTo = session()->get('return_to');
+        session()->forget(['return_to']);
 
         try {
-            $externalUser = Socialite::driver($provider)->stateless()->user();
+            # parse_str(parse_url($_SERVER['REQUEST_URI'])['query'], $query);
+            # $request->mergeIfMissing($query);
+
+            $externalUser = Socialite::driver($provider)
+                ->stateless()
+                ->with(['access_type' => 'offline'])
+                ->user();
 
             $nameArr = preg_split('/\s+/', $externalUser->getName());
             $firstName = $nameArr[0];
             $lastName = count($nameArr) > 1 ? implode(' ', array_slice($nameArr, 1)) : null;
             $email = $externalUser->getEmail();
-            $username = AuthUtils::generateUsername($email);
+            $username = AuthUtils::generateUsernameFromEmail($email);
 
-            if (!$username){
+            if (!$username) {
                 response()->json([
                     'message' => 'Registration failed'
                 ]);
@@ -229,17 +250,19 @@ class AuthController extends Controller
                 ['avatar' => $externalUser->getAvatar()]
             );
 
-            $tokenResult = $createdUser->createToken('auth-token');
+            $tokenResult = $createdUser->createToken('Personal Access Token');
             $this->createLoginLog($tokenResult->accessToken, ['external_auth' => true, 'external_auth_provider' => $provider]);
 
-            return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url, 'access_token' => $tokenResult->accessToken]);
-        } catch (\Exception $exception) {
-            return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url])
+            $returnUrl = $returnTo . "?token={$tokenResult->accessToken}&error=";
+
+            return view('auth.callback', ['return_url' => $returnUrl]);
+        } catch (Exception $exception) {
+            return view('auth.callback')
                 ->withErrors(['auth' => 'Failed to authenticated.']);
         }
     }
 
-    private function createLoginLog($accessToken,  array $additionalData = array())
+    private function createLoginLog($accessToken, array $additionalData = array())
     {
         if (($user = AuthUtils::findUserByAccessToken($accessToken))) {
             $loginLog = new LoginLog();

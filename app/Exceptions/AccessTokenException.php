@@ -12,7 +12,7 @@ class AccessTokenException extends AuthenticationException implements Arrayable
 
     public function __construct(?array $data = null, ?string $reason = null)
     {
-        parent::__construct('Unauthorized.');
+        parent::__construct('Unauthorized');
         $this->code = 401;
         $this->data = $data ?? [];
 

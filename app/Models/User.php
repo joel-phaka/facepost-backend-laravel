@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\HasApiTokens;
 use Plank\Metable\Metable;
 
@@ -102,14 +103,31 @@ class User extends Authenticatable
     {
         $url = null;
 
-        if (!!($profilePicture = Image::find($this->getMeta('profile_picture')))) {
-            $url = $profilePicture->url;
-        } else if ($this->providers()->count()) {
-            $provider = $this->providers()->first();
-            $url = !!$provider ? $provider->avatar : null;
+        if (!!($image = Image::getIfValid($this->getMeta('profile_picture')))) {
+            $url = $image->url;
+        } else if (!!($provider = $this->providers()->first()) && !!$provider->avatar) {
+            $url = $provider->avatar;
         }
 
         return $url;
+    }
+
+    public function getProfilePictureInBase64()
+    {
+        $base64Image = null;
+
+        if (!!($profilePicture = Image::getIfValid($this->getMeta('profile_picture')))) {
+            $mimeType = Storage::disk('images')->mimeType($profilePicture->name);
+            $base64Image = 'data:' . $mimeType . ';base64,' . base64_encode(Storage::disk('images')->get($profilePicture->name));
+        }  else if (!!($provider = $this->providers()->first()) && !!$provider->avatar && !empty(($imageInfo = getimagesize($provider->avatar)))) {
+            [0 => $width, 1 => $height, 'mime' => $mimeType] = $imageInfo;
+
+            if ($width > 0 && $height > 0 && !!($content = @file_get_contents($provider->avatar))) {
+                $base64Image = 'data:' . $mimeType . ';base64,' . base64_encode($content);
+            }
+        }
+
+        return $base64Image;
     }
 
     public function getIsAuthUserAttribute()

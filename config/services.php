@@ -31,13 +31,6 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'passport' => [
-        'client_id' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_ID'),
-        'client_secret' => env('PASSPORT_PERSONAL_ACCESS_CLIENT_SECRET'),
-        'oauth_token_url' => env('PASSPORT_OAUTH_TOKEN_URL'),
-        'oauth_token_refresh_url' => env('PASSPORT_OAUTH_TOKEN_REFRESH_URL'),
-    ],
-
     /** External Auth Providers **/
     'facebook' => [
         'client_id' => env('FACEBOOK_CLIENT_ID'),
