@@ -6,13 +6,10 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
+    <script type="text/javascript">
+        window.location.href = '{!! $return_to !!}';
+    </script>
 </head>
 <body>
-
-    <script type="text/javascript">
-        //errors->has('auth')
-        const url = '{{$return_url}}';
-        window.location.href=url
-    </script>
 </body>
 </html>

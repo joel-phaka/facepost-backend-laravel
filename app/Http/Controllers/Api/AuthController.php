@@ -210,19 +210,15 @@ class AuthController extends Controller
 
     public function handleProviderCallback(Request $request, $provider)
     {
-        parse_str(parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $query);
-        $request->mergeIfMissing($query);
+        # parse_str(parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $query);
+        # $request->mergeIfMissing($query);
 
         $returnTo = session()->get('return_to');
         session()->forget(['return_to']);
 
         try {
-            # parse_str(parse_url($_SERVER['REQUEST_URI'])['query'], $query);
-            # $request->mergeIfMissing($query);
-
             $externalUser = Socialite::driver($provider)
                 ->stateless()
-                ->with(['access_type' => 'offline'])
                 ->user();
 
             $nameArr = preg_split('/\s+/', $externalUser->getName());
@@ -253,12 +249,20 @@ class AuthController extends Controller
             $tokenResult = $createdUser->createToken('Personal Access Token');
             $this->createLoginLog($tokenResult->accessToken, ['external_auth' => true, 'external_auth_provider' => $provider]);
 
-            $returnUrl = $returnTo . "?token={$tokenResult->accessToken}&error=";
-
-            return view('auth.callback', ['return_url' => $returnUrl]);
+            $returnTo = http_build_url(
+                url: $returnTo,
+                parts: [
+                    'query' => http_build_query([
+                        'oauth' => 'true',
+                        'token' => $tokenResult->accessToken,
+                    ])
+                ],
+                flags: HTTP_URL_JOIN_QUERY
+            );
         } catch (Exception $exception) {
-            return view('auth.callback')
-                ->withErrors(['auth' => 'Failed to authenticated.']);
+            // TODO
+        } finally {
+            return view('auth.callback', ['return_to' => $returnTo]);
         }
     }
 
