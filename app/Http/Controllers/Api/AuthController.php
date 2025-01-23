@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\Image;
 use App\Models\LoginLog;
 use App\Models\User;
 use Exception;
@@ -16,6 +17,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
@@ -201,7 +204,7 @@ class AuthController extends Controller
 
     public function redirectToProvider(Request $request, $provider)
     {
-        session(['return_to' => $request->query('return_to')]);
+        session(['return_to' => filter_var($request->query('return_to'), FILTER_SANITIZE_URL)]);
 
         return Socialite::driver($provider)
             ->stateless()
@@ -213,7 +216,7 @@ class AuthController extends Controller
         # parse_str(parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $query);
         # $request->mergeIfMissing($query);
 
-        $returnTo = session()->get('return_to');
+        $returnTo = filter_var(session('return_to'), FILTER_SANITIZE_URL);
         session()->forget(['return_to']);
 
         try {
@@ -240,14 +243,43 @@ class AuthController extends Controller
             ]);
 
             $createdUser->providers()->updateOrCreate([
-                    'provider' => $provider,
-                    'provider_id' => $externalUser->getId(),
-                ],
-                ['avatar' => $externalUser->getAvatar()]
-            );
+                'provider' => $provider,
+                'provider_id' => $externalUser->getId(),
+            ]);
 
             $tokenResult = $createdUser->createToken('Personal Access Token');
-            $this->createLoginLog($tokenResult->accessToken, ['external_auth' => true, 'external_auth_provider' => $provider]);
+
+            $this->createLoginLog($tokenResult->accessToken, [
+                'external_auth' => true,
+                'external_auth_provider' => $provider
+            ]);
+
+            if (!!$externalUser->getAvatar() &&
+                ($avatarContent = @file_get_contents($externalUser->getAvatar())) &&
+                ($avatarInfo = @getimagesizefromstring($avatarContent)) &&
+                ($avatarInfo[0] > 0 && $avatarInfo[1] > 0) &&
+                in_array($avatarInfo['mime'], array_values(config('const.images.mimetypes')))
+            ) {
+                $imageExtension = array_flip(config('const.images.mimetypes'))[$avatarInfo['mime']];
+                $baseImageName = date('Ymd') . '-' . $createdUser->id . '-' . Str::random(32);
+                $imageName = $baseImageName . '.' . $imageExtension;
+
+                $image = Image::create([
+                    'name' => $imageName,
+                    'type' => $avatarInfo['mime'],
+                    'caption' => $createdUser->first_name . ' ' . $createdUser->last_name,
+                    'width' => $avatarInfo[0],
+                    'height' => $avatarInfo[1],
+                    'user_id' => $createdUser->id,
+                ]);
+
+                if (!!$image && Storage::disk('images')->put($imageName, $avatarContent)) {
+                    $createdUser->setMeta('profile_picture', $image->id);
+                } else {
+                    Storage::disk('images')->delete($imageName);
+                    $image?->delete();
+                }
+            }
 
             $returnTo = http_build_url(
                 url: $returnTo,
@@ -259,8 +291,8 @@ class AuthController extends Controller
                 ],
                 flags: HTTP_URL_JOIN_QUERY
             );
-        } catch (Exception $exception) {
-            // TODO
+        } catch (Exception $ex) {
+
         } finally {
             return view('auth.callback', ['return_to' => $returnTo]);
         }

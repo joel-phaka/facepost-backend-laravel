@@ -101,30 +101,21 @@ class User extends Authenticatable
 
     public function getProfilePictureAttribute()
     {
-        $url = null;
+        $imageId = $this->getMeta('profile_picture');
 
-        if (!!($image = Image::getIfValid($this->getMeta('profile_picture')))) {
-            $url = $image->url;
-        } else if (!!($provider = $this->providers()->first()) && !!$provider->avatar) {
-            $url = $provider->avatar;
-        }
-
-        return $url;
+        return !!$imageId && !!($image = Image::getIfValid($this->getMeta('profile_picture'))) && !!$image->url
+            ? $image->url
+            : null;
     }
 
     public function getProfilePictureInBase64()
     {
         $base64Image = null;
+        $imageId = $this->getMeta('profile_picture');
 
-        if (!!($profilePicture = Image::getIfValid($this->getMeta('profile_picture')))) {
+        if (!!$imageId && !!($profilePicture = Image::getIfValid($imageId))) {
             $mimeType = Storage::disk('images')->mimeType($profilePicture->name);
             $base64Image = 'data:' . $mimeType . ';base64,' . base64_encode(Storage::disk('images')->get($profilePicture->name));
-        }  else if (!!($provider = $this->providers()->first()) && !!$provider->avatar && !empty(($imageInfo = getimagesize($provider->avatar)))) {
-            [0 => $width, 1 => $height, 'mime' => $mimeType] = $imageInfo;
-
-            if ($width > 0 && $height > 0 && !!($content = @file_get_contents($provider->avatar))) {
-                $base64Image = 'data:' . $mimeType . ';base64,' . base64_encode($content);
-            }
         }
 
         return $base64Image;
@@ -138,7 +129,7 @@ class User extends Authenticatable
     public function isAuthUser()
     {
         return Auth::check() &&
-            $this->id == Auth::user()->id &&
+            $this->id == Auth::id() &&
             $this->email == Auth::user()->email &&
             $this->username == Auth::user()->username;
     }

@@ -10,6 +10,5 @@ class Provider extends Model
         'provider_id',
         'provider',
         'user_id',
-        'avatar'
     ];
 }
