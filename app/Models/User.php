@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Passport\HasApiTokens;
 use Plank\Metable\Metable;
 
@@ -47,6 +48,7 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'is_active' => 'bool',
+        'password' => 'hashed'
     ];
 
     protected $appends = [
@@ -99,16 +101,24 @@ class User extends Authenticatable
 
     public function getProfilePictureAttribute()
     {
-        $url = null;
+        $imageId = $this->getMeta('profile_picture');
 
-        if (!!($profilePicture = Image::find($this->getMeta('profile_picture')))) {
-            $url = $profilePicture->url;
-        } else if ($this->providers()->count()) {
-            $provider = $this->providers()->first();
-            $url = !!$provider ? $provider->avatar : null;
+        return !!$imageId && !!($image = Image::getIfValid($this->getMeta('profile_picture'))) && !!$image->url
+            ? $image->url
+            : null;
+    }
+
+    public function getProfilePictureInBase64()
+    {
+        $base64Image = null;
+        $imageId = $this->getMeta('profile_picture');
+
+        if (!!$imageId && !!($profilePicture = Image::getIfValid($imageId))) {
+            $mimeType = Storage::disk('images')->mimeType($profilePicture->name);
+            $base64Image = 'data:' . $mimeType . ';base64,' . base64_encode(Storage::disk('images')->get($profilePicture->name));
         }
 
-        return $url;
+        return $base64Image;
     }
 
     public function getIsAuthUserAttribute()
@@ -119,7 +129,7 @@ class User extends Authenticatable
     public function isAuthUser()
     {
         return Auth::check() &&
-            $this->id == Auth::user()->id &&
+            $this->id == Auth::id() &&
             $this->email == Auth::user()->email &&
             $this->username == Auth::user()->username;
     }

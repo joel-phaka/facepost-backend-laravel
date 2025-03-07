@@ -52,7 +52,7 @@ Route::get('/files/{path}', function (Request $request, $path) {
 ]);;
 
 Route::group([
-    'prefix' => 'login'
+    'prefix' => 'login',
 ], function () {
     Route::get('/{provider}', 'App\Http\Controllers\Api\AuthController@redirectToProvider')
         ->whereIn('provider', config('services.providers_list'));

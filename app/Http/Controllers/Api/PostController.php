@@ -218,6 +218,11 @@ class PostController extends Controller
         return response()->json(['success' => $success], $status);
     }
 
+    public function getPostImages(Post $post)
+    {
+        return response()->json($post->gallery?->images ?? []);
+    }
+
     public function copyGalleryFromRequest($newName = '', ?array &$galleryCopyResult = null)
     {
         if (request()->has('gallery_id')) {

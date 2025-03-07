@@ -17,16 +17,17 @@ class DynamicConfigServiceProvider extends ServiceProvider
         $configMapping = [];
 
         if (!app()->runningInConsole()) {
-            $appUrl = Utils::baseUrl();
 
-            $configMapping = array_merge($configMapping, [
-                'app.url'                                   => $appUrl,
-                'services.facebook.redirect'                => $appUrl . '/login/facebook/callback',
-                'services.google.redirect'                  => $appUrl . '/login/google/callback',
-                'services.passport.oauth_token_url'         => $appUrl . '/oauth/token',
-                'services.passport.oauth_token_refresh_url' => $appUrl . '/oauth/token/refresh',
-                'filesystems.files_link.url'                => $appUrl . '/files',
-            ]);
+            if (config('app.url') !== ($appUrl = Utils::baseUrl())) {
+                $configMapping = array_merge($configMapping, [
+                    'app.url' => $appUrl,
+                    'services.facebook.redirect' => $appUrl . '/login/facebook/callback',
+                    'services.google.redirect' => $appUrl . '/login/google/callback',
+                    'passport.oauth_token_url' => $appUrl . '/oauth/token',
+                    'passport.oauth_token_refresh_url' => $appUrl . '/oauth/token/refresh',
+                    'filesystems.files_link.url' => $appUrl . '/files',
+                ]);
+            }
         }
 
         config($configMapping);

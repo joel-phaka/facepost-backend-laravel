@@ -49,4 +49,11 @@ class ProfileController extends Controller
     {
         return Utils::paginate($user->comments());
     }
+
+    public function getPicture(User $user)
+    {
+        return response()->json([
+            'base64_image' => $user->getProfilePictureInBase64()
+        ]);
+    }
 }

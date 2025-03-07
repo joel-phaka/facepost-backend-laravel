@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Exceptions\AccessTokenException;
 use App\Helpers\AuthUtils;
-use App\Helpers\Utils;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RefreshTokenRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Models\Image;
 use App\Models\LoginLog;
 use App\Models\User;
-use Illuminate\Auth\AuthenticationException;
+use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Jenssegers\Agent\Agent;
 use Laravel\Socialite\Facades\Socialite;
+use PeterPetrus\Auth\PassportToken;
 use Stevebauman\Location\Facades\Location;
 use Throwable;
 
@@ -45,15 +50,15 @@ class AuthController extends Controller
         }
 
         $grantUrls = [
-            'password' => config('services.passport.oauth_token_url'),
-            'refresh_token' => config('services.passport.oauth_token_refresh_url')
+            'password' => config('passport.oauth_token_url'),
+            'refresh_token' => config('passport.oauth_token_refresh_url')
         ];
 
         $url = $grantUrls[$credentials['grant_type']];
 
         $credentials = array_merge($credentials, [
-            'client_id' => config('services.passport.client_id'),
-            'client_secret' => config('services.passport.client_secret'),
+            'client_id' => config('passport.password_client.id'),
+            'client_secret' => config('passport.password_client.secret'),
         ]);
 
         $options = ['verify' => !config('app.debug')];
@@ -68,51 +73,72 @@ class AuthController extends Controller
 
         if ($response->failed()) {
             if ($response->status() == 400) {
-                throw new AuthenticationException(!!trim($response->body()) ? $response->body() : "Unauthorized");
+                throw new AccessTokenException($response->json());
             } else {
                 throw $response->toException();
             }
         }
 
-        return $response->json();
+        $tokenData = $response->json();
+
+        $accessTokenDetails = new PassportToken($tokenData['access_token']);
+        $tokenData['expires_at'] = Carbon::parse($accessTokenDetails->expires_at)->timestamp;
+
+        return [
+            'token_type' => $tokenData['token_type'],
+            'expires_in' => $tokenData['expires_in'],
+            'expires_at' => $tokenData['expires_at'],
+            'access_token' => $tokenData['access_token'],
+            'refresh_token' => $tokenData['refresh_token'],
+        ];
     }
-    public function login(LoginRequest $request)
+
+    public function loginWithEmailAndPassword(array $credentials)
     {
-        $userFromEmail = DB::table('users')
-            ->select(['is_active'])
-            ->where('email', $request->input('email'))
-            ->first();
-
-        if (!!$userFromEmail && !$userFromEmail->is_active) {
-            return response()->json([
-                'message' => 'The user account has been deactivated.',
-                'error_code' => 'auth_account_deactivated',
-            ], 401);
-        }
-
         try {
-            $credentials = array_merge(
-                ['grant_type' => 'password'],
-                $request->only('email', 'password')
-            );
+            $userFromEmail = DB::table('users')
+                ->select(['is_active'])
+                ->where('email', $credentials['email'])
+                ->first();
+
+            if (!!$userFromEmail && !$userFromEmail->is_active) {
+                return response()->json([
+                    'message' => 'The user account has been deactivated.',
+                    'error_code' => 'auth_account_deactivated',
+                ], 401);
+            }
+
+            $credentials = [
+                'grant_type' => 'password',
+                ...Arr::only($credentials, ['email', 'password'])
+            ];
 
             $tokens = $this->getTokens($credentials);
             $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
             abort_if(!$user, 401);
 
+            auth()->login($user);
+
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (AuthenticationException $ex) {
-            return response()->json([
-                'message' => "Unauthorized",
-                'error_code' => "auth_invalid_credentials",
-            ], 401);
-        } catch (Throwable $ex) {
+        } catch (AccessTokenException $ex) {
+            return response()->json($ex, 401);
+        } catch (Throwable $th) {
             return response()->json([
                 'message' => "Internal Server Error",
                 'error_code' => "auth_internal_error",
             ], 500);
         }
+    }
+
+    public function login(LoginRequest $request)
+    {
+        return $this->loginWithEmailAndPassword($request->only('email', 'password'));
+    }
+
+    public function loginWithAccessToken()
+    {
+        return AuthUtils::issueAccessTokenData(request()->bearerToken() ?? '');
     }
 
     public function refresh(RefreshTokenRequest $request)
@@ -126,17 +152,16 @@ class AuthController extends Controller
             $tokens = $this->getTokens($credentials);
             $user = AuthUtils::findUserByAccessToken($tokens['access_token']);
 
-            abort_if(!$user, 401);
+            if (!$user) {
+                throw new AccessTokenException(null, 'auth_invalid_user');
+            }
 
             return response()->json(array_merge($tokens, compact('user')));
-        } catch (AuthenticationException $ex) {
-            return response()->json([
-                'message' => "Unauthorized",
-                'error_code' => "auth_invalid_refresh_token",
-            ], 401);
+        } catch (AccessTokenException $ex) {
+            return response()->json($ex, 401);
         } catch (Throwable $ex) {
             return response()->json([
-                'message' => "Internal Server Error",
+                'message' => $ex->getMessage(),//"Internal Server Error",
                 'error_code' => "auth_internal_error",
             ], 500);
         }
@@ -144,18 +169,26 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
+        $username = AuthUtils::generateUsernameFromEmail($request->input('email'));
+
+        if (!$username) {
+            return response()->json([
+                'message' => 'Registration failed'
+            ]);
+        }
+
         $user = User::create([
             'first_name' => $request->input('first_name'),
             'last_name' => $request->input('last_name'),
-            'username' => AuthUtils::generateUsername($request->input('email')),
+            'username' => $username,
             'email' => $request->input('email'),
-            'password' => bcrypt($request->input('password')),
+            'password' => $request->input('password'),
         ]);
 
         return response()->json($user);
     }
 
-    public function user()
+    public function getUser()
     {
         return auth()->user();
     }
@@ -169,53 +202,103 @@ class AuthController extends Controller
         return response()->json(['message' => 'Logged out successfully']);
     }
 
-    public function redirectToProvider($provider)
+    public function redirectToProvider(Request $request, $provider)
     {
-        session([
-            'platform' => request()->input('platform'),
-            'spa_app_url' => request()->input('spa_app_url')
-        ]);
+        session(['return_to' => filter_var($request->query('return_to'), FILTER_SANITIZE_URL)]);
 
-        return Socialite::driver($provider)->stateless()->redirect();
+        return Socialite::driver($provider)
+            ->stateless()
+            ->redirect();
     }
 
-    public function handleProviderCallback($provider)
+    public function handleProviderCallback(Request $request, $provider)
     {
-        $platform = session()->get('platform');
-        $spa_app_url = session()->get('spa_app_url');
-        session()->forget(['platform', 'spa_app_url']);
+        # parse_str(parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY), $query);
+        # $request->mergeIfMissing($query);
+
+        $returnTo = filter_var(session('return_to'), FILTER_SANITIZE_URL);
+        session()->forget(['return_to']);
 
         try {
-            $externalUser = Socialite::driver($provider)->stateless()->user();
+            $externalUser = Socialite::driver($provider)
+                ->stateless()
+                ->user();
 
             $nameArr = preg_split('/\s+/', $externalUser->getName());
-            $first_name = $nameArr[0];
-            $last_name = count($nameArr) > 1 ? implode(' ', array_slice($nameArr, 1)) : null;
+            $firstName = $nameArr[0];
+            $lastName = count($nameArr) > 1 ? implode(' ', array_slice($nameArr, 1)) : null;
+            $email = $externalUser->getEmail();
+            $username = AuthUtils::generateUsernameFromEmail($email);
 
-            $createdUser = User::firstOrCreate(['email' => $externalUser->getEmail()], [
-                'first_name' => $first_name,
-                'last_name' => $last_name,
-                'username' => AuthUtils::generateUsername($externalUser->getEmail()),
+            if (!$username) {
+                response()->json([
+                    'message' => 'Registration failed'
+                ]);
+            }
+
+            $createdUser = User::firstOrCreate(['email' => $email], [
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'username' => $username,
             ]);
 
             $createdUser->providers()->updateOrCreate([
-                    'provider' => $provider,
-                    'provider_id' => $externalUser->getId(),
+                'provider' => $provider,
+                'provider_id' => $externalUser->getId(),
+            ]);
+
+            $tokenResult = $createdUser->createToken('Personal Access Token');
+
+            $this->createLoginLog($tokenResult->accessToken, [
+                'external_auth' => true,
+                'external_auth_provider' => $provider
+            ]);
+
+            if (!!$externalUser->getAvatar() &&
+                ($avatarContent = @file_get_contents($externalUser->getAvatar())) &&
+                ($avatarInfo = @getimagesizefromstring($avatarContent)) &&
+                ($avatarInfo[0] > 0 && $avatarInfo[1] > 0) &&
+                in_array($avatarInfo['mime'], array_values(config('const.images.mimetypes')))
+            ) {
+                $imageExtension = array_flip(config('const.images.mimetypes'))[$avatarInfo['mime']];
+                $baseImageName = date('Ymd') . '-' . $createdUser->id . '-' . Str::random(32);
+                $imageName = $baseImageName . '.' . $imageExtension;
+
+                $image = Image::create([
+                    'name' => $imageName,
+                    'type' => $avatarInfo['mime'],
+                    'caption' => $createdUser->first_name . ' ' . $createdUser->last_name,
+                    'width' => $avatarInfo[0],
+                    'height' => $avatarInfo[1],
+                    'user_id' => $createdUser->id,
+                ]);
+
+                if (!!$image && Storage::disk('images')->put($imageName, $avatarContent)) {
+                    $createdUser->setMeta('profile_picture', $image->id);
+                } else {
+                    Storage::disk('images')->delete($imageName);
+                    $image?->delete();
+                }
+            }
+
+            $returnTo = http_build_url(
+                url: $returnTo,
+                parts: [
+                    'query' => http_build_query([
+                        'oauth' => 'true',
+                        'token' => $tokenResult->accessToken,
+                    ])
                 ],
-                ['avatar' => $externalUser->getAvatar()]
+                flags: HTTP_URL_JOIN_QUERY
             );
+        } catch (Exception $ex) {
 
-            $tokenResult = $createdUser->createToken('auth-token');
-            $this->createLoginLog($tokenResult->accessToken, ['external_auth' => true, 'external_auth_provider' => $provider]);
-
-            return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url, 'access_token' => $tokenResult->accessToken]);
-        } catch (\Exception $exception) {
-            return view('auth.callback', ['platform' => $platform, 'spa_app_url' => $spa_app_url])
-                ->withErrors(['auth' => 'Failed to authenticated.']);
+        } finally {
+            return view('auth.callback', ['return_to' => $returnTo]);
         }
     }
 
-    private function createLoginLog($accessToken,  array $additionalData = array())
+    private function createLoginLog($accessToken, array $additionalData = array())
     {
         if (($user = AuthUtils::findUserByAccessToken($accessToken))) {
             $loginLog = new LoginLog();

@@ -81,7 +81,7 @@ return [
 
     'files_link' => [
         'url' => env('APP_URL') . '/files',
-        'allowed_extensions' => ['jpg', 'jpeg', 'png'],
+        'allowed_extensions' => ['jpg', 'png'],
     ],
 
     'images' => [
