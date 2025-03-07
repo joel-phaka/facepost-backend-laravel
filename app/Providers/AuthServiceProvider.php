@@ -23,11 +23,12 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
-        
-        $n = now();
+
+        $dateTimeNow = now()->toImmutable();
+
         Passport::enablePasswordGrant();
         Passport::ignoreCsrfToken();
-        Passport::tokensExpireIn($n->addHour());
-        Passport::refreshTokensExpireIn($n->addMonth());
+        Passport::tokensExpireIn($dateTimeNow->addHour());
+        Passport::refreshTokensExpireIn($dateTimeNow->addMonth());
     }
 }

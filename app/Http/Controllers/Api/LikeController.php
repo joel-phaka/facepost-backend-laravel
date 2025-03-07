@@ -34,9 +34,9 @@ class LikeController extends Controller
                     'user_id' => Auth::id()
                 ]);
 
-                $like->save();
-                $success  = true;
+                $success = $like->save();
             }
+
             $typeObject = call_user_func([$typeObject, 'refresh']);
 
             return response()->json(['success' => $success, $typeName => $typeObject]);
@@ -50,22 +50,20 @@ class LikeController extends Controller
         $typeClass = Like::getLikeableType($typeName);
 
         if (!!$typeClass) {
-            $typeObject = call_user_func_array([$typeClass, 'findOrFail'], [$typeId]);
+            $like = Auth::user()
+                ->likes()
+                ->where('likeable_type', $typeClass)
+                ->where('likeable_id', $typeId)
+                ->firstOrFail();
 
-            if ($typeObject->user_id != Auth::id()) {
-                return response()->json(['message' => 'Forbidden'], 403);
-            }
             $success = false;
+            $typeObject = $like->likeable;
 
-            if ($typeObject->isLiked) {
-                $success = (bool)Auth::user()->likes()
-                    ->where('likeable_type', $typeClass)
-                    ->where('likeable_id', $typeId)
-                    ->delete();
+            if (!!$typeObject) {
+                if ($typeObject->isLiked) $success = $like->delete();
+
+                return response()->json(['success' => $success, $typeName => $typeObject->refresh()]);
             }
-            $typeObject = call_user_func([$typeObject, 'refresh']);
-
-            return response()->json(['success' => $success, $typeName => $typeObject]);
         }
 
         return response()->json(['message' => 'An error occurred'], 500);

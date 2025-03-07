@@ -60,13 +60,13 @@ class Utils
         });
     }
 
-    public static function baseUrl($path = null): string
+    public static function baseUrl(?string $path = ''): string
     {
         $host = data_get($_SERVER, 'HTTP_X_FORWARDED_HOST') ?: data_get($_SERVER,'HTTP_HOST');
         $proto = null;
 
         if (!!data_get($_SERVER, 'HTTP_X_FORWARDED_PROTO')) {
-            $proto = $_SERVER['HTTP_X_FORWARDED_PROTO'];
+            $proto = data_get($_SERVER, 'HTTP_X_FORWARDED_PROTO');
         } else {
             $isSecure = data_get($_SERVER, 'HTTP_X_FORWARDED_SSL') == 'on' ||
                         data_get($_SERVER, 'SERVER_PORT') == 443 ||
@@ -79,7 +79,7 @@ class Utils
 
         $url = (!!$host ? ($proto . '://' . $host) : null);
 
-        $path = trim($path);
+        $path = trim($path ?? '');
 
         if (!!$path && !str_starts_with($path, '?')) {
             $path = preg_replace('/^\//', '/', $path);
