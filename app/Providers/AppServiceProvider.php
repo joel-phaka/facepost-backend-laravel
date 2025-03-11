@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\URL;
@@ -36,6 +37,13 @@ class AppServiceProvider extends ServiceProvider
             }
 
             return config('app.url') . $path;
+        });
+
+        Builder::macro('orderByCreated', function (string $direction = 'desc') {
+            $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+            return $this->orderBy('created_at', $direction)
+                ->orderBy('id', $direction);
         });
     }
 }
