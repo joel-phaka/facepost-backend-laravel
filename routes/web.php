@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -25,7 +26,7 @@ Route::get('/files/{path}', function (Request $request, $path) {
     $allowedExtensions = config('filesystems.files_link.allowed_extensions');
 
 
-    if (file_exists($filepath) && !str_starts_with($basename, '.') && in_array($extension, $allowedExtensions)) {
+    if (is_file($filepath) && !str_starts_with($basename, '.') && in_array($extension, $allowedExtensions)) {
         $mimeType = mime_content_type($filepath);
         $fileStream = fopen($filepath, 'rb');
         $headers = [
@@ -54,9 +55,9 @@ Route::get('/files/{path}', function (Request $request, $path) {
 Route::group([
     'prefix' => 'login',
 ], function () {
-    Route::get('/{provider}', 'App\Http\Controllers\Api\AuthController@redirectToProvider')
+    Route::get('/{provider}', [AuthController::class, 'redirectToProvider'])
         ->whereIn('provider', config('services.providers_list'));
-    Route::get('/{provider}/callback', 'App\Http\Controllers\Api\AuthController@handleProviderCallback')
+    Route::get('/{provider}/callback', [AuthController::class, 'handleProviderCallback'])
         ->whereIn('provider', config('services.providers_list'));
 });
 

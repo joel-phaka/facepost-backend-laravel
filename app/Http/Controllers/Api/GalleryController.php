@@ -8,14 +8,21 @@ use App\Http\Requests\Gallery\CreateGalleryRequest;
 use App\Http\Requests\Gallery\UpdateGalleryRequest;
 use App\Models\Gallery;
 use App\Traits\HandlesBulkImages;
+use Illuminate\Http\Request;
 
 class GalleryController extends Controller
 {
     use HandlesBulkImages;
 
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Utils::paginate(Gallery::ofActiveUsers()->latest()));
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
+
+        $galleries = Gallery::ofActiveUsers()
+            ->orderByCreated($sort);
+
+        return response()->json(Utils::paginate($galleries, $perPage, compact('sort')));
     }
 
     public function store(CreateGalleryRequest $request)

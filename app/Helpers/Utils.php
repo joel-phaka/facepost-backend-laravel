@@ -31,10 +31,6 @@ class Utils
         $itemsPerPage = (intval($perPage) ?: intval(config('const.pagination.items_per_page'))) ?: 10;
         $maxItemsPerPages = intval(config('const.pagination.max_items_per_page')) ?: 20;
 
-        if (!!request()->integer('per_page')) {
-            $itemsPerPage = request()->integer('per_page');
-        }
-
         if ($itemsPerPage > $maxItemsPerPages) {
             $itemsPerPage = $maxItemsPerPages;
         }

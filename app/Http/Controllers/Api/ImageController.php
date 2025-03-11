@@ -14,13 +14,19 @@ class ImageController extends Controller
 {
     use HandlesBulkImages;
 
-    public function index(User $user = null)
+    public function index(Request $request, ?User $user = null)
     {
-       if (!$user || $user->isAuthUser()) {
-           $user = $user ?: Auth::user();
-       }
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
 
-       return response()->json(Utils::paginate($user->images()->latest()));
+        if (!$user || $user->isAuthUser()) {
+            $user = $user ?: Auth::user();
+        }
+
+       $images = $user->images()
+           ->orderByCreated($sort);
+
+       return response()->json(Utils::paginate($images, $perPage, compact('sort')));
     }
 
     public function upload(UploadImageRequest $request)

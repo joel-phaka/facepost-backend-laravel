@@ -15,13 +15,16 @@ use Illuminate\Support\Facades\Auth;
 
 class CommentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
+
         $comments = Comment::ofActiveUsers()
             ->whereNull('parent_id')
-            ->latest();
+            ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments));
+        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
     }
 
     public function store(CreateCommentRequest $request)
@@ -44,7 +47,7 @@ class CommentController extends Controller
 
     public function update(Comment $comment, UpdateCommentRequest $request)
     {
-        $comment->update($request->only(['content'])) ;
+        $comment->update($request->only(['content']));
 
         return response()->json($comment);
     }
@@ -65,23 +68,29 @@ class CommentController extends Controller
         return response()->json($comment);
     }
 
-    public function getPostComments(Post $post)
+    public function getPostComments(Post $post, Request $request)
     {
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
+
         $comments = Comment::ofActiveUsers()
             ->where('post_id', $post->id)
             ->whereNull('parent_id')
-            ->latest();
+            ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments));
+        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
     }
 
-    public function thread(Comment $comment)
+    public function getCommentReplies(Comment $comment, Request $request)
     {
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
+
         $comments = Comment::ofActiveUsers()
             ->where('parent_id', $comment->id)
-            ->latest();
+            ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments));
+        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
     }
 
     public function replyToComment(Comment $comment, ReplyToCommentRequest $request)

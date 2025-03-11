@@ -9,6 +9,7 @@ use App\Http\Requests\Post\UpdatePostRequest;
 use App\Models\Gallery;
 use App\Models\Post;
 use App\Traits\HandlesBulkImages;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -26,23 +27,23 @@ class PostController extends Controller
      */
     public function index(Request $request)
     {
-        if ($request->has('search_query')) {
-            $searchQuery = trim(preg_replace('/%+/', '', $request->input('search_query')));
-            $appends = $request->only(['search_query']);
-            $posts = (new Post)->newCollection();
+        $searchQuery = trim(preg_replace('/%+/', '', $request->input('search_query')));
+        $sort = in_array(($s = strval($request->input('sort'))), ['asc', 'desc']) ? $s : 'desc';
+        $perPage = $request->integer('per_page');
 
-            if (!!$searchQuery) {
-                $posts = Post::ofActiveUsers()
-                    ->where('title', 'LIKE', "%{$searchQuery}%")
-                    ->orWhere('content', 'LIKE', "%{$searchQuery}%")
-                    ->latest();
+        $posts = Post::ofActiveUsers()
+            ->when(!!$searchQuery, function (Builder $query) use ($searchQuery) {
+                $query->where('title', 'LIKE', "%{$searchQuery}%")
+                    ->orWhere('content', 'LIKE', "%{$searchQuery}%");
+            })
+            ->orderByCreated($sort);
 
-            }
+        $appends = [
+            ...(!!$searchQuery ? ['search_query' => $searchQuery] : []),
+            ...compact('sort')
+        ];
 
-            return response()->json(Utils::paginate($posts, null, $appends));
-        }
-
-        return response()->json(Utils::paginate(Post::ofActiveUsers()->latest()));
+        return response()->json(Utils::paginate($posts, $perPage, $appends));
     }
 
     /**
