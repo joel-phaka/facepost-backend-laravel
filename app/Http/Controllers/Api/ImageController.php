@@ -26,7 +26,7 @@ class ImageController extends Controller
        $images = $user->images()
            ->orderByCreated($sort);
 
-       return response()->json(Utils::paginate($images, $perPage, compact('sort')));
+       return response()->json(Utils::paginate($images, ['per_page' => $perPage, 'appends' => compact('sort')]));
     }
 
     public function upload(UploadImageRequest $request)

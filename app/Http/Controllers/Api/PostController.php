@@ -43,7 +43,7 @@ class PostController extends Controller
             ...compact('sort')
         ];
 
-        return response()->json(Utils::paginate($posts, $perPage, $appends));
+        return response()->json(Utils::paginate($posts,  ['per_page' => $perPage, 'appends' => $appends]));
     }
 
     /**

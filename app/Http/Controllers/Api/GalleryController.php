@@ -22,7 +22,7 @@ class GalleryController extends Controller
         $galleries = Gallery::ofActiveUsers()
             ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($galleries, $perPage, compact('sort')));
+        return response()->json(Utils::paginate($galleries, ['per_page' => $perPage, 'appends' => compact('sort')]));
     }
 
     public function store(CreateGalleryRequest $request)

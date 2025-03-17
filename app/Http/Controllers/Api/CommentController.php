@@ -24,7 +24,7 @@ class CommentController extends Controller
             ->whereNull('parent_id')
             ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
+        return response()->json(Utils::paginate($comments, ['per_page' => $perPage, 'appends' => compact('sort')]));
     }
 
     public function store(CreateCommentRequest $request)
@@ -78,7 +78,7 @@ class CommentController extends Controller
             ->whereNull('parent_id')
             ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
+        return response()->json(Utils::paginate($comments, ['per_page' => $perPage, 'appends' => compact('sort')]));
     }
 
     public function getCommentReplies(Comment $comment, Request $request)
@@ -90,7 +90,7 @@ class CommentController extends Controller
             ->where('parent_id', $comment->id)
             ->orderByCreated($sort);
 
-        return response()->json(Utils::paginate($comments, $perPage, compact('sort')));
+        return response()->json(Utils::paginate($comments, ['per_page' => $perPage, 'appends' => compact('sort')]));
     }
 
     public function replyToComment(Comment $comment, ReplyToCommentRequest $request)
